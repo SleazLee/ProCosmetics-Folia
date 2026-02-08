@@ -1,7 +1,6 @@
 dependencies {
-    // Spigot API
-    compileOnly("org.spigotmc:spigot:1.21.10-R0.1-SNAPSHOT")
-    compileOnly("org.spigotmc:spigot-api:1.21.10-R0.1-SNAPSHOT")
+    // Paper API
+    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
 
     // Project dependencies
     implementation(project(":api"))
@@ -12,7 +11,8 @@ dependencies {
     {
         exclude(group = "org.jetbrains.annotations")
     }
-    implementation("com.github.FilleDev:NoteBlockAPI:1c5500b038")
+    // NoteBlockAPI (disabled for Folia compatibility)
+    // implementation("com.github.FilleDev:NoteBlockAPI:1c5500b038")
     implementation("org.mongodb:mongodb-driver-sync:5.6.3")
     implementation("com.zaxxer:HikariCP:7.0.2")
     {

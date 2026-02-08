@@ -32,6 +32,7 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.api.util.structure.type.BlockStructure;
 import se.filledev.procosmetics.util.MathUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.structure.type.BlockStructureImpl;
 
 import java.util.Set;
@@ -64,10 +65,7 @@ public class Trampoline implements GadgetBehavior {
         for (Player closePlayer : MathUtil.getClosestPlayersFromLocation(location, 4.0d)) {
             closePlayer.teleport(teleport);
         }
-        context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(),
-                () -> onUnequip(context),
-                context.getType().getDurationTicks()
-        );
+        Scheduler.runLater(location, () -> onUnequip(context), context.getType().getDurationTicks());
         return InteractionResult.success();
     }
 

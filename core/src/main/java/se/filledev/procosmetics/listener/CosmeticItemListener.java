@@ -39,6 +39,7 @@ import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.api.util.item.ItemBuilder;
 import se.filledev.procosmetics.menu.menus.MainMenu;
 import se.filledev.procosmetics.util.InventoryUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.item.ItemBuilderImpl;
 import se.filledev.procosmetics.util.item.ItemIdentifier;
 
@@ -116,7 +117,7 @@ public class CosmeticItemListener implements Listener {
             }
             // We want to execute this 1 tick later since player.getLocation() returns the dead body location
             // and we want the cosmetics to spawn at the respawn-location
-            plugin.getServer().getScheduler().runTask(plugin, () -> {
+            Scheduler.run(event.getRespawnLocation(), () -> {
                 User user = plugin.getUserManager().getConnected(player);
 
                 if (user != null) {

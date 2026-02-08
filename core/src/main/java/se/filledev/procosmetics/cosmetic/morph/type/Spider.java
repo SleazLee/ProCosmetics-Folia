@@ -35,6 +35,7 @@ import se.filledev.procosmetics.api.cosmetic.morph.MorphType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.util.MathUtil;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.item.ItemBuilderImpl;
 
 import java.util.ArrayList;
@@ -68,7 +69,7 @@ public class Spider implements MorphBehavior {
         if (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK) {
             Player player = context.getPlayer();
 
-            context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(), this::clearItems, 140L);
+            Scheduler.runLater(player.getLocation(), this::clearItems, 140L);
             player.playSound(player, Sound.ENTITY_SPIDER_HURT, 1.0f, 1.0f);
 
             activated = true;

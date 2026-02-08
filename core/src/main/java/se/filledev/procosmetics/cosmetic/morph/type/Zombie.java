@@ -32,6 +32,7 @@ import se.filledev.procosmetics.api.cosmetic.morph.MorphType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.util.MathUtil;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 
 public class Zombie implements MorphBehavior, Listener {
 
@@ -71,7 +72,7 @@ public class Zombie implements MorphBehavior, Listener {
                 break;
             }
 
-            context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(), () -> {
+            Scheduler.runLater(location, () -> {
                 if (zombie != null && zombie.isValid()) {
                     zombie.getLocation(location);
 
