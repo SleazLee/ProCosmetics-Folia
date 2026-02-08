@@ -35,6 +35,7 @@ import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.nms.EntityTrackerImpl;
 import se.filledev.procosmetics.util.MathUtil;
+import se.filledev.procosmetics.util.Scheduler;
 
 public class ChickenParachute implements GadgetBehavior {
 
@@ -86,10 +87,7 @@ public class ChickenParachute implements GadgetBehavior {
         }
         player.getWorld().playSound(location, Sound.ENTITY_HORSE_ARMOR, 1.0f, 1.0f);
 
-        context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(),
-                () -> parachuting = true,
-                5L
-        );
+        Scheduler.runLater(location, () -> parachuting = true, 5L);
         return InteractionResult.success();
     }
 

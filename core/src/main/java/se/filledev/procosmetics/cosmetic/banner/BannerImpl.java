@@ -34,6 +34,7 @@ import se.filledev.procosmetics.cosmetic.CosmeticImpl;
 import se.filledev.procosmetics.cosmetic.emote.animation.AnimationController;
 import se.filledev.procosmetics.cosmetic.emote.animation.AnimationListener;
 import se.filledev.procosmetics.nms.AbstractNMSEquipment;
+import se.filledev.procosmetics.util.Scheduler;
 
 import java.util.List;
 
@@ -115,7 +116,7 @@ public class BannerImpl extends CosmeticImpl<BannerType, BannerBehavior> impleme
         if (player.getGameMode() != GameMode.CREATIVE) {
             player.updateInventory();
         }
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+        Scheduler.runLater(player.getLocation(), () -> {
             if (isEquipped() && nmsEquipment != null) {
                 nmsEquipment.sendUpdateToPlayer(player);
             }

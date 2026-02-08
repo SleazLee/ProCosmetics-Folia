@@ -35,6 +35,7 @@ import se.filledev.procosmetics.api.cosmetic.morph.MorphType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.cosmetic.CosmeticImpl;
+import se.filledev.procosmetics.util.Scheduler;
 
 public class MorphImpl extends CosmeticImpl<MorphType, MorphBehavior> implements Morph {
 
@@ -170,7 +171,7 @@ public class MorphImpl extends CosmeticImpl<MorphType, MorphBehavior> implements
 
     protected void addCooldown(double time) {
         cooldown = true;
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+        Scheduler.runLater(player.getLocation(), () -> {
             if (isEquipped()) {
                 user.sendActionBar(user.translate(
                         "cosmetic.morphs.ability.cooldown.ready",

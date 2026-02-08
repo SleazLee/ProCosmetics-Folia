@@ -30,7 +30,6 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.meta.FireworkMeta;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 import org.joml.Matrix4f;
 import se.filledev.procosmetics.api.ProCosmetics;
@@ -49,13 +48,14 @@ import se.filledev.procosmetics.api.util.structure.type.BlockStructure;
 import se.filledev.procosmetics.util.LocationUtil;
 import se.filledev.procosmetics.util.MathUtil;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.structure.type.BlockStructureImpl;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 
-public abstract class TreasureChestAnimationImpl extends BukkitRunnable implements TreasureChestAnimation, Listener {
+public abstract class TreasureChestAnimationImpl implements TreasureChestAnimation, Listener, Runnable {
 
     private static final LegacyComponentSerializer SERIALIZER = LegacyComponentSerializer.legacySection();
     private static final Title.Times DEFAULT_TIMES = Title.Times.times(Ticks.duration(5), Ticks.duration(50), Ticks.duration(5));
@@ -77,6 +77,7 @@ public abstract class TreasureChestAnimationImpl extends BukkitRunnable implemen
     protected int ticks;
 
     protected Location location;
+    private Scheduler.Task task;
 
     public TreasureChestAnimationImpl(ProCosmetics plugin, TreasureChestPlatform platform, TreasureChest treasureChest, User user) {
         this.plugin = plugin;
@@ -110,7 +111,7 @@ public abstract class TreasureChestAnimationImpl extends BukkitRunnable implemen
         server.getPluginManager().callEvent(new PlayerOpenTreasureChestEvent(plugin, user, player, treasureChest));
         server.getPluginManager().registerEvents(this, plugin.getJavaPlugin());
         plugin.getJavaPlugin().getLogger().log(Level.INFO, "[TREASURE CHEST] " + user + " is opening a " + treasureChest.getKey() + " treasure chest.");
-        runTaskTimer(plugin.getJavaPlugin(), 0L, 1L);
+        task = Scheduler.runTimer(location, this, 0L, 1L);
     }
 
     @Override
@@ -157,7 +158,7 @@ public abstract class TreasureChestAnimationImpl extends BukkitRunnable implemen
         openedChests.add(location.clone());
 
         if (openedChests.size() >= treasureChest.getChestsToOpen()) {
-            plugin.getJavaPlugin().getServer().getScheduler().runTaskLater(plugin.getJavaPlugin(), this::reset, 100L);
+            Scheduler.runLater(location, this::reset, 100L);
         }
     }
 
@@ -223,24 +224,21 @@ public abstract class TreasureChestAnimationImpl extends BukkitRunnable implemen
 
     private void spawnFirework(Location location, CosmeticRarity rarity) {
         if (rarity.getDetonations() > 0) {
-            new BukkitRunnable() {
-                int i;
+            int[] detonations = {0};
+            Scheduler.Task[] task = new Scheduler.Task[1];
+            task[0] = Scheduler.runTimer(location, () -> {
+                location.getWorld().spawn(location, Firework.class, entity -> {
+                    FireworkMeta fireworkMeta = entity.getFireworkMeta();
+                    fireworkMeta.addEffect(rarity.getFireworkEffect());
+                    entity.setFireworkMeta(fireworkMeta);
 
-                @Override
-                public void run() {
-                    location.getWorld().spawn(location, Firework.class, entity -> {
-                        FireworkMeta fireworkMeta = entity.getFireworkMeta();
-                        fireworkMeta.addEffect(rarity.getFireworkEffect());
-                        entity.setFireworkMeta(fireworkMeta);
+                    MetadataUtil.setCustomEntity(entity);
+                }).detonate();
 
-                        MetadataUtil.setCustomEntity(entity);
-                    }).detonate();
-
-                    if (++i >= rarity.getDetonations()) {
-                        cancel();
-                    }
+                if (++detonations[0] >= rarity.getDetonations()) {
+                    task[0].cancel();
                 }
-            }.runTaskTimer(plugin.getJavaPlugin(), 0L, rarity.getTickInterval());
+            }, 0L, rarity.getTickInterval());
         }
     }
 
@@ -327,7 +325,10 @@ public abstract class TreasureChestAnimationImpl extends BukkitRunnable implemen
         texts = null;
 
         HandlerList.unregisterAll(this);
-        cancel();
+        if (task != null) {
+            task.cancel();
+            task = null;
+        }
     }
 
     private void checkOpenerLocation() {
