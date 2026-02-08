@@ -17,7 +17,6 @@
  */
 package se.filledev.procosmetics.api.cosmetic.music;
 
-import com.xxmicloxx.NoteBlockAPI.model.Song;
 import se.filledev.procosmetics.api.cosmetic.CosmeticType;
 
 /**
@@ -25,26 +24,19 @@ import se.filledev.procosmetics.api.cosmetic.CosmeticType;
  */
 public interface MusicType extends CosmeticType<MusicType, MusicBehavior> {
 
-    /**
-     * Gets the song associated with this music type.
-     * The song contains the musical data that will be played when this cosmetic is active.
+    /*
+     * NoteBlockAPI-based song playback is disabled for Folia compatibility.
      *
-     * @return the song to be played
+     * Original API surface:
+     *
+     *   Song getSong();
+     *   Builder song(Song song);
      */
-    Song getSong();
 
     /**
      * Builder interface for constructing music type instances.
      */
     interface Builder extends CosmeticType.Builder<MusicType, MusicBehavior, Builder> {
-
-        /**
-         * Sets the song to be played by this music cosmetic.
-         *
-         * @param song the song from NoteBlockAPI
-         * @return this builder for method chaining
-         */
-        Builder song(Song song);
 
         /**
          * Builds and returns the configured music type instance.

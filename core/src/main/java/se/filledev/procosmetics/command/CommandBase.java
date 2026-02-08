@@ -21,7 +21,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.apache.commons.lang.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
@@ -157,7 +156,7 @@ public class CommandBase implements CommandExecutor, TabCompleter {
     private void registerArgumentTypes() {
         registerArgumentType(String.class, string -> string)
                 .registerArgumentType(Player.class, Bukkit::getPlayerExact)
-                .registerArgumentType(Integer.class, string -> StringUtils.isNumeric(string) ? Integer.parseInt(string) : 0)
+                .registerArgumentType(Integer.class, string -> string != null && string.matches("\\d+") ? Integer.parseInt(string) : 0)
                 .registerArgumentType(Boolean.class, string -> string.equalsIgnoreCase("true") || (string.equalsIgnoreCase("false") ? false : null));
     }
 }

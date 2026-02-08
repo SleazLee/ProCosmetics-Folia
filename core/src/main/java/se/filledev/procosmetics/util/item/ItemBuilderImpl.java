@@ -52,7 +52,7 @@ public class ItemBuilderImpl implements ItemBuilder {
     private static final String TEXTURE_URL = "https://textures.minecraft.net/texture/%s";
 
     public static final ItemFlag[] ITEM_FLAGS = Arrays.stream(ItemFlag.values())
-            .filter(flag -> Mapping.MAPPING_TYPE == MappingType.SPIGOT && flag != ItemFlag.HIDE_LORE)
+            .filter(flag -> Mapping.MAPPING_TYPE == MappingType.SPIGOT && !"HIDE_LORE".equals(flag.name()))
             .toArray(ItemFlag[]::new);
 
     private static final LegacyComponentSerializer SERIALIZER = LegacyComponentSerializer.legacySection();

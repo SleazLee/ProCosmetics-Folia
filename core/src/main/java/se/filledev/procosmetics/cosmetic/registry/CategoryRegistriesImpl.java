@@ -39,8 +39,6 @@ import se.filledev.procosmetics.api.cosmetic.morph.MorphBehavior;
 import se.filledev.procosmetics.api.cosmetic.morph.MorphType;
 import se.filledev.procosmetics.api.cosmetic.mount.MountBehavior;
 import se.filledev.procosmetics.api.cosmetic.mount.MountType;
-import se.filledev.procosmetics.api.cosmetic.music.MusicBehavior;
-import se.filledev.procosmetics.api.cosmetic.music.MusicType;
 import se.filledev.procosmetics.api.cosmetic.particleeffect.ParticleEffectBehavior;
 import se.filledev.procosmetics.api.cosmetic.particleeffect.ParticleEffectType;
 import se.filledev.procosmetics.api.cosmetic.pet.PetBehavior;
@@ -83,8 +81,6 @@ import se.filledev.procosmetics.cosmetic.morph.type.Villager;
 import se.filledev.procosmetics.cosmetic.mount.MountTypeImpl;
 import se.filledev.procosmetics.cosmetic.mount.type.*;
 import se.filledev.procosmetics.cosmetic.mount.type.CaveSpider;
-import se.filledev.procosmetics.cosmetic.music.MusicTypeImpl;
-import se.filledev.procosmetics.cosmetic.music.type.DefaultMusic;
 import se.filledev.procosmetics.cosmetic.particleeffect.ParticleEffectTypeImpl;
 import se.filledev.procosmetics.cosmetic.particleeffect.type.*;
 import se.filledev.procosmetics.cosmetic.particleeffect.type.Bunny;
@@ -118,7 +114,8 @@ public class CategoryRegistriesImpl implements CategoryRegistries {
         register(new CosmeticCategoryImpl<>(BuiltIn.MINIATURES, MiniatureTypeImpl.BuilderImpl::new, CosmeticMenuImpl::new));
         register(new CosmeticCategoryImpl<>(BuiltIn.MORPHS, MorphTypeImpl.BuilderImpl::new, MorphMenu::new));
         register(new CosmeticCategoryImpl<>(BuiltIn.MOUNTS, MountTypeImpl.BuilderImpl::new, CosmeticMenuImpl::new));
-        register(new CosmeticCategoryImpl<>(BuiltIn.MUSIC, MusicTypeImpl.BuilderImpl::new, CosmeticMenuImpl::new));
+        // NoteBlockAPI-based music cosmetics are disabled for Folia compatibility.
+        // register(new CosmeticCategoryImpl<>(BuiltIn.MUSIC, MusicTypeImpl.BuilderImpl::new, CosmeticMenuImpl::new));
         register(new CosmeticCategoryImpl<>(BuiltIn.PARTICLE_EFFECTS, ParticleEffectTypeImpl.BuilderImpl::new, CosmeticMenuImpl::new));
         register(new CosmeticCategoryImpl<>(BuiltIn.PETS, PetTypeImpl.BuilderImpl::new, CosmeticMenuImpl::new));
         register(new CosmeticCategoryImpl<>(BuiltIn.STATUSES, StatusTypeImpl.BuilderImpl::new, StatusMenu::new));
@@ -301,12 +298,16 @@ public class CategoryRegistriesImpl implements CategoryRegistries {
         mounts.register(mounts.builder("slime").entityType(EntityType.SLIME).readFromConfig().factory(se.filledev.procosmetics.cosmetic.mount.type.Slime::new).build());
         mounts.register(mounts.builder("unicorn").entityType(EntityType.HORSE).readFromConfig().factory(Unicorn::new).build());
 
-        CosmeticRegistry<MusicType, MusicBehavior, MusicType.Builder> music = music().getCosmeticRegistry();
-        for (String key : music().getConfig().getSectionKeys("cosmetics")) {
-            if (!music.isRegistered(key)) {
-                music.register(music.builder(key).readFromConfig().factory(DefaultMusic::new).build());
-            }
-        }
+        /*
+         * NoteBlockAPI-based music cosmetics are disabled for Folia compatibility.
+         *
+         * CosmeticRegistry<MusicType, MusicBehavior, MusicType.Builder> music = music().getCosmeticRegistry();
+         * for (String key : music().getConfig().getSectionKeys("cosmetics")) {
+         *     if (!music.isRegistered(key)) {
+         *         music.register(music.builder(key).readFromConfig().factory(DefaultMusic::new).build());
+         *     }
+         * }
+         */
 
         CosmeticRegistry<ParticleEffectType, ParticleEffectBehavior, ParticleEffectType.Builder> particleEffects = particleEffects().getCosmeticRegistry();
         particleEffects.register(particleEffects.builder("angel_wings").readFromConfig().factory(AngelWings::new).repeatDelay(2).build());

@@ -30,6 +30,7 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.api.util.structure.type.BlockStructure;
 import se.filledev.procosmetics.util.MathUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.structure.type.BlockStructureImpl;
 
 public class DivingBoard implements GadgetBehavior {
@@ -54,10 +55,7 @@ public class DivingBoard implements GadgetBehavior {
         double angle = structure.spawn(center);
         jump = center.clone().add(MathUtil.rotateAroundAxisY(new Vector(0.0d, 3.0d, 3.0d), angle));
 
-        context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(),
-                () -> onUnequip(context),
-                context.getType().getDurationTicks()
-        );
+        Scheduler.runLater(center, () -> onUnequip(context), context.getType().getDurationTicks());
         return InteractionResult.success();
     }
 

@@ -17,7 +17,6 @@
  */
 package se.filledev.procosmetics;
 
-import com.xxmicloxx.NoteBlockAPI.NoteBlockAPI;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import org.bstats.bukkit.Metrics;
 import org.bstats.charts.SimplePie;
@@ -58,6 +57,7 @@ import se.filledev.procosmetics.treasure.animation.TreasureChestAnimationRegistr
 import se.filledev.procosmetics.user.UserManagerImpl;
 import se.filledev.procosmetics.util.LogUtil;
 import se.filledev.procosmetics.util.ResourceExporter;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.block.FakeBlockManager;
 import se.filledev.procosmetics.util.version.VersionUtil;
 import se.filledev.procosmetics.worldguard.WorldGuardManager;
@@ -101,8 +101,8 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
     public void onLoad() {
         ProCosmeticsPlugin.plugin = this;
         logger = getLogger();
-        syncExecutor = runnable -> getServer().getScheduler().runTask(this, runnable);
-        ayncExecutor = runnable -> getServer().getScheduler().runTaskAsynchronously(this, runnable);
+        syncExecutor = Scheduler::run;
+        ayncExecutor = Scheduler::runAsync;
 
         if (!VersionUtil.isSupported()) {
             LogUtil.printUnsupported();
@@ -150,7 +150,8 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
         hookPlugins();
         checkUpdate();
 
-        NoteBlockAPI.init(this);
+        // NoteBlockAPI is disabled for Folia compatibility.
+        // NoteBlockAPI.init(this);
 
         userManager.loadOnlinePlayers();
         if (redisManager != null) {
@@ -197,13 +198,14 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
             platform.hideDisplay();
         }
         HandlerList.unregisterAll(this);
-        getServer().getScheduler().cancelTasks(this);
+        Scheduler.cancelTasks();
 
         if (adventure != null) {
             adventure.close();
             adventure = null;
         }
-        NoteBlockAPI.getAPI().shutdown();
+        // NoteBlockAPI is disabled for Folia compatibility.
+        // NoteBlockAPI.getAPI().shutdown();
     }
 
     private void initializeRedis() {

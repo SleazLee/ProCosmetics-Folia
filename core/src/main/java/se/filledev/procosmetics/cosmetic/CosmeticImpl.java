@@ -37,6 +37,7 @@ import se.filledev.procosmetics.api.event.PlayerUnequipCosmeticEvent;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.config.ConfigManagerImpl;
 import se.filledev.procosmetics.util.AbstractRunnable;
+import se.filledev.procosmetics.util.Scheduler;
 
 public abstract class CosmeticImpl<T extends CosmeticType<T, B>,
         B extends CosmeticBehavior<T>> extends AbstractRunnable implements Cosmetic<T, B>, Listener, CosmeticContext<T> {
@@ -112,7 +113,7 @@ public abstract class CosmeticImpl<T extends CosmeticType<T, B>,
         }
 
         if (!silent) {
-            server.getScheduler().runTask(plugin, () -> user.sendMessage(user.translate(
+            Scheduler.run(player.getLocation(), () -> user.sendMessage(user.translate(
                     "cosmetic." + cosmeticType.getCategory().getKey() + ".equip",
                     Placeholder.unparsed("cosmetic", cosmeticType.getName(user))
             )));

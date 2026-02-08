@@ -42,6 +42,7 @@ import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.util.FastMathUtil;
 import se.filledev.procosmetics.util.MathUtil;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.item.ItemBuilderImpl;
 
 import java.util.ArrayList;
@@ -114,20 +115,17 @@ public class CoinPartyBomb implements GadgetBehavior, Listener {
         nmsEntity.setPositionRotation(center);
         nmsEntity.getTracker().startTracking();
 
-        context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(), () -> {
+        Scheduler.runLater(center, () -> {
             tick = 0;
             despawnBlock();
         }, context.getType().getDurationTicks());
 
-        context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(),
-                () -> {
-                    // Make sure it's not running (the player could have started another one)
-                    if (tick == 0) {
-                        onUnequip(context);
-                    }
-                },
-                context.getType().getDurationTicks() + EXTRA_TIME
-        );
+        Scheduler.runLater(center, () -> {
+            // Make sure it's not running (the player could have started another one)
+            if (tick == 0) {
+                onUnequip(context);
+            }
+        }, context.getType().getDurationTicks() + EXTRA_TIME);
         return InteractionResult.success();
     }
 

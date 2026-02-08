@@ -33,6 +33,7 @@ import se.filledev.procosmetics.api.cosmetic.morph.MorphType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.util.MathUtil;
+import se.filledev.procosmetics.util.Scheduler;
 
 public class Slime implements MorphBehavior, Listener {
 
@@ -64,7 +65,7 @@ public class Slime implements MorphBehavior, Listener {
             Vector vector = location.add(0.0D, 0.3, 0.0D).getDirection().multiply(1.3D);
             fallingBlock.setVelocity(vector.add(new Vector(0.0D, 0.5D, 0.0D)));
 
-            context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(), () -> {
+            Scheduler.runLater(location, () -> {
                 if (fallingBlock != null) {
                     removeBlock();
                 }

@@ -23,6 +23,7 @@ import se.filledev.procosmetics.ProCosmeticsPlugin;
 import se.filledev.procosmetics.cosmetic.gadget.type.MerryGoRound;
 import se.filledev.procosmetics.packet.PacketHandler;
 import se.filledev.procosmetics.util.ReflectionUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.mapping.MappingRegistry;
 
 import java.lang.reflect.Field;
@@ -47,7 +48,7 @@ public class EntityInUse extends PacketHandler {
                     Entity entity = coasterHorse.armorStand().getBukkitEntity();
 
                     if (entity.getPassengers().isEmpty()) {
-                        plugin.getServer().getScheduler().runTask(plugin, () -> entity.addPassenger(player));
+                        Scheduler.run(entity.getLocation(), () -> entity.addPassenger(player));
                     }
                     return;
                 }

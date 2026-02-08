@@ -70,7 +70,7 @@ subprojects {
         maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/")
 
         // Paper
-        maven("https://papermc.io/repo/maven-public/")
+        maven("https://repo.papermc.io/repository/maven-public/")
 
         // Plugins
         maven("https://jitpack.io")
@@ -101,7 +101,7 @@ subprojects {
             endWithNewline()
             removeUnusedImports()
             //palantirJavaFormat("2.81.0").style("GOOGLE").formatJavadoc(true)
-            licenseHeaderFile(rootProject.file("/config/spotless/license-header.txt"), "package ")
+            licenseHeaderFile(rootProject.file("config/spotless/license-header.txt"), "package ")
         }
     }
 
