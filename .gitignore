@@ -84,3 +84,7 @@ outputFiles.bin
 /dist/
 /nbdist/
 /.nb-gradle/
+
+spigotInstall/
+v1_21_11/
+v1_21_10/
