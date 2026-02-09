@@ -26,6 +26,7 @@ import org.bukkit.entity.Player;
 import se.filledev.procosmetics.api.nms.EntityTracker;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.nms.entitytype.CachedEntityType;
+import se.filledev.procosmetics.util.Scheduler;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -271,7 +272,12 @@ public abstract class NMSEntityImpl<T> implements NMSEntity {
             entityLocation.setY(location.getY());
 
             if (location.distanceSquared(entityLocation) >= MAXIMUM_DISTANCE_SQUARED_BEFORE_TELEPORT) {
-                bukkitEntity.teleport(location.add(2.0d, 0.0d, 2.0d));
+                Location target = location.add(2.0d, 0.0d, 2.0d);
+                if (Scheduler.isFolia()) {
+                    bukkitEntity.teleportAsync(target);
+                } else {
+                    bukkitEntity.teleport(target);
+                }
             }
         }
     }
