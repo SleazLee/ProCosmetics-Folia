@@ -198,13 +198,13 @@ abstract class VersionedObfTask @Inject constructor(
         }
 
         val mojangMap =
-            "$homeDir/.m2/repository/org/spigotmc/minecraft-server/$minecraftVersion-R0.1-SNAPSHOT/minecraft-server-$minecraftVersion-R0.1-SNAPSHOT-maps-mojang.txt"
+            "$homeDir/.m2/repository/org/spigotmc/minecraft-server/$minecraftVersion-R0.2-SNAPSHOT/minecraft-server-$minecraftVersion-R0.2-SNAPSHOT-maps-mojang.txt"
         val spigotMap =
-            "$homeDir/.m2/repository/org/spigotmc/minecraft-server/$minecraftVersion-R0.1-SNAPSHOT/minecraft-server-$minecraftVersion-R0.1-SNAPSHOT-maps-spigot.csrg"
+            "$homeDir/.m2/repository/org/spigotmc/minecraft-server/$minecraftVersion-R0.2-SNAPSHOT/minecraft-server-$minecraftVersion-R0.2-SNAPSHOT-maps-spigot.csrg"
         val mojangRemap =
-            "$homeDir/.m2/repository/org/spigotmc/spigot/$minecraftVersion-R0.1-SNAPSHOT/spigot-$minecraftVersion-R0.1-SNAPSHOT-remapped-mojang.jar"
+            "$homeDir/.m2/repository/org/spigotmc/spigot/$minecraftVersion-R0.2-SNAPSHOT/spigot-$minecraftVersion-R0.2-SNAPSHOT-remapped-mojang.jar"
         val obfuscationRemap =
-            "$homeDir/.m2/repository/org/spigotmc/spigot/$minecraftVersion-R0.1-SNAPSHOT/spigot-$minecraftVersion-R0.1-SNAPSHOT-remapped-obf.jar"
+            "$homeDir/.m2/repository/org/spigotmc/spigot/$minecraftVersion-R0.2-SNAPSHOT/spigot-$minecraftVersion-R0.2-SNAPSHOT-remapped-obf.jar"
 
         // First pass: mojang -> obf
         execOperations.exec {
