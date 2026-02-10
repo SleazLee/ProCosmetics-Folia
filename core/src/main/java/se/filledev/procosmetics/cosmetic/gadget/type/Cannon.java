@@ -31,6 +31,7 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.util.structure.type.BlockDisplayStructure;
 import se.filledev.procosmetics.util.MathUtil;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.structure.type.BlockDisplayStructureImpl;
 
 import org.jetbrains.annotations.Nullable;
@@ -60,10 +61,7 @@ public class Cannon implements GadgetBehavior {
         shootLocation = center.clone().add(MathUtil.rotateAroundAxisY(new Vector(0.0d, 1.0d, 4.6d), angle));
         shootLocation.add(0.0, PARTICLE_OFFSET, 0.0d);
 
-        context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(),
-                () -> onUnequip(context),
-                context.getType().getDurationTicks()
-        );
+        Scheduler.runLater(center, () -> onUnequip(context), context.getType().getDurationTicks());
         return InteractionResult.success();
     }
 

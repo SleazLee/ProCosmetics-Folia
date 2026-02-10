@@ -30,11 +30,11 @@ import com.sk89q.worldguard.session.Session;
 import com.sk89q.worldguard.session.handler.Handler;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitTask;
 import se.filledev.procosmetics.api.ProCosmetics;
 import se.filledev.procosmetics.api.cosmetic.registry.CosmeticCategory;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 
 import java.util.Set;
 
@@ -50,7 +50,7 @@ public class WorldGuardManager {
 
     private final WorldGuard worldGuard;
     private final WorldGuardPlugin worldGuardPlugin;
-    private BukkitTask task;
+    private Scheduler.Task task;
 
     public WorldGuardManager(ProCosmetics plugin) {
         this.worldGuard = WorldGuard.getInstance();
@@ -85,7 +85,7 @@ public class WorldGuardManager {
         // Otherwise, players could bypass region restrictions by riding entities (non-horse),
         // pushing them into protected areas, letting pathfinders wander inside,
         // or using plugins that apply velocity to move them across region boundaries.
-        task = plugin.getJavaPlugin().getServer().getScheduler().runTaskTimer(plugin.getJavaPlugin(), () -> {
+        task = Scheduler.runTimer(() -> {
             for (Player player : plugin.getJavaPlugin().getServer().getOnlinePlayers()) {
                 Entity vehicle = player.getVehicle();
 

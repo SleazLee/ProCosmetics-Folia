@@ -17,10 +17,7 @@
  */
 package se.filledev.procosmetics.cosmetic.music;
 
-import com.xxmicloxx.NoteBlockAPI.model.Song;
-import com.xxmicloxx.NoteBlockAPI.utils.NBSDecoder;
 import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.Nullable;
 import se.filledev.procosmetics.ProCosmeticsPlugin;
 import se.filledev.procosmetics.api.cosmetic.CosmeticRarity;
 import se.filledev.procosmetics.api.cosmetic.music.Music;
@@ -30,14 +27,17 @@ import se.filledev.procosmetics.api.cosmetic.registry.CosmeticCategory;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.cosmetic.CosmeticTypeImpl;
 
-import java.io.File;
 import java.util.List;
 import java.util.function.Supplier;
-import java.util.logging.Level;
 
 public class MusicTypeImpl extends CosmeticTypeImpl<MusicType, MusicBehavior> implements MusicType {
 
-    private final Song song;
+    /*
+     * NoteBlockAPI-based song playback is disabled for Folia compatibility.
+     *
+     * Original field:
+     * private final Song song;
+     */
 
     public MusicTypeImpl(String key,
                          CosmeticCategory<MusicType, MusicBehavior, ?> category,
@@ -47,10 +47,8 @@ public class MusicTypeImpl extends CosmeticTypeImpl<MusicType, MusicBehavior> im
                          int cost,
                          CosmeticRarity rarity,
                          ItemStack itemStack,
-                         List<String> treasureChests,
-                         Song song) {
+                         List<String> treasureChests) {
         super(key, category, behaviorFactory, enabled, purchasable, cost, rarity, itemStack, treasureChests);
-        this.song = song;
     }
 
     @Override
@@ -58,14 +56,14 @@ public class MusicTypeImpl extends CosmeticTypeImpl<MusicType, MusicBehavior> im
         return new MusicImpl(plugin, user, this, behavior);
     }
 
-    @Override
-    public @Nullable Song getSong() {
-        return song;
-    }
-
     public static class BuilderImpl extends CosmeticTypeImpl.BuilderImpl<MusicType, MusicBehavior, MusicType.Builder> implements MusicType.Builder {
 
-        private Song song;
+        /*
+         * NoteBlockAPI-based song playback is disabled for Folia compatibility.
+         *
+         * Original field:
+         * private Song song;
+         */
 
         public BuilderImpl(String key, CosmeticCategory<MusicType, MusicBehavior, ?> category) {
             super(key, category);
@@ -79,10 +77,12 @@ public class MusicTypeImpl extends CosmeticTypeImpl<MusicType, MusicBehavior> im
         @Override
         public MusicType.Builder readFromConfig() {
             super.readFromConfig();
-            loadSong();
+            // NoteBlockAPI song loading disabled.
+            // loadSong();
             return this;
         }
 
+        /*
         private void loadSong() {
             File file = PLUGIN.getDataFolder().toPath().resolve("songs").resolve(key + ".nbs").toFile();
 
@@ -99,6 +99,7 @@ public class MusicTypeImpl extends CosmeticTypeImpl<MusicType, MusicBehavior> im
             this.song = song;
             return this;
         }
+        */
 
         @Override
         public MusicType build() {
@@ -110,8 +111,7 @@ public class MusicTypeImpl extends CosmeticTypeImpl<MusicType, MusicBehavior> im
                     cost,
                     rarity,
                     itemStack,
-                    treasureChests,
-                    song
+                    treasureChests
             );
         }
     }
