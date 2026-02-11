@@ -33,6 +33,7 @@
   "cosmetic.mounts.name_tag": "<aqua><player>'s</aqua> <gray><cosmetic></gray>",
 
   "cosmetic.music.equip": "<gray>You spawned <yellow><cosmetic></yellow>.</gray>",
+  "cosmetic.music.disabled": "<red>Music cosmetics are disabled for Folia compatibility.</red>",
   "cosmetic.music.equip.deny": "<red>You are too close to another Music Box. Go further away!</red>",
   "cosmetic.music.unequip": "<gray>You despawned <yellow><cosmetic></yellow>.</gray>",
   "cosmetic.music.hologram.dj": "<green><player>'s DJ</green>",

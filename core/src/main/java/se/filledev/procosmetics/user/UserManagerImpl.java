@@ -65,7 +65,7 @@ public class UserManagerImpl implements UserManager {
 
     public void registerListeners() {
         plugin.getServer().getPluginManager().registerEvents(new Listeners(), plugin);
-        plugin.getServer().getScheduler().runTaskTimer(plugin, new MovementRunnable(), 1L, 1L);
+        new MovementRunnable().runTaskTimer(plugin, 1L, 1L);
     }
 
     public void loadOnlinePlayers() {

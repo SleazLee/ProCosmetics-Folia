@@ -17,14 +17,11 @@
  */
 package se.filledev.procosmetics.cosmetic.music;
 
-import com.xxmicloxx.NoteBlockAPI.event.SongEndEvent;
-import com.xxmicloxx.NoteBlockAPI.songplayer.PositionSongPlayer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.*;
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
@@ -73,7 +70,12 @@ public class MusicImpl extends CosmeticImpl<MusicType, MusicBehavior> implements
     private final Vector discoBallVector = new Vector();
 
     private final boolean discoFloor;
-    private PositionSongPlayer songPlayer;
+    /*
+     * NoteBlockAPI-based song playback is disabled for Folia compatibility.
+     *
+     * Original field:
+     * private PositionSongPlayer songPlayer;
+     */
     private final EntityTracker tracker = new EntityTrackerImpl();
     private NMSEntity armorStand;
     private NMSEntity jukebox;
@@ -91,6 +93,9 @@ public class MusicImpl extends CosmeticImpl<MusicType, MusicBehavior> implements
 
     @Override
     public boolean canEquip() {
+        user.sendMessage(user.translate("cosmetic.music.disabled"));
+        return false;
+        /*
         Location location = player.getLocation();
         location.setX(location.getBlockX());
         location.setY(location.getBlockY());
@@ -111,10 +116,12 @@ public class MusicImpl extends CosmeticImpl<MusicType, MusicBehavior> implements
             return false;
         }
         return true;
+        */
     }
 
     @Override
     public void onEquip() {
+        /*
         player.getLocation(location);
         float yaw = 90.0f * (Math.round(location.getYaw() / 90.0f) & 0x3);
         location.setX(location.getBlockX() + 0.5d);
@@ -135,6 +142,7 @@ public class MusicImpl extends CosmeticImpl<MusicType, MusicBehavior> implements
         songPlayer.setPlaying(true);
 
         runTaskTimer(plugin, 0L, 1L);
+        */
     }
 
     @Override
@@ -192,10 +200,12 @@ public class MusicImpl extends CosmeticImpl<MusicType, MusicBehavior> implements
 
     @Override
     public void onUnequip() {
+        /*
         if (songPlayer != null) {
             songPlayer.destroy();
             songPlayer = null;
         }
+        */
         tracker.destroy();
 
         if (discoFloor) {
@@ -207,12 +217,14 @@ public class MusicImpl extends CosmeticImpl<MusicType, MusicBehavior> implements
         }
     }
 
+    /*
     @EventHandler
     public void onSongEnd(SongEndEvent event) {
         if (songPlayer == event.getSongPlayer()) {
             user.removeCosmetic(cosmeticType.getCategory(), false, false);
         }
     }
+    */
 
     private boolean isOnGround(Location location) {
         Block block = location.clone().subtract(0.0d, 1.0d, 0.0d).getBlock();

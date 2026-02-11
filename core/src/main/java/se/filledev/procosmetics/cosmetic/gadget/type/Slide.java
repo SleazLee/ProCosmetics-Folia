@@ -41,6 +41,7 @@ import se.filledev.procosmetics.api.util.structure.type.BlockStructure;
 import se.filledev.procosmetics.util.FastMathUtil;
 import se.filledev.procosmetics.util.MathUtil;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.structure.type.BlockStructureImpl;
 
 public class Slide implements GadgetBehavior, Listener {
@@ -74,10 +75,7 @@ public class Slide implements GadgetBehavior, Listener {
                 break;
             }
         }
-        context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(),
-                () -> onUnequip(context),
-                context.getType().getDurationTicks()
-        );
+        Scheduler.runLater(center, () -> onUnequip(context), context.getType().getDurationTicks());
         return InteractionResult.success();
     }
 
