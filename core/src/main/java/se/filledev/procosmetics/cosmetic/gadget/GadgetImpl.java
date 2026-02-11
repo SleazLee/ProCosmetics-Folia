@@ -46,6 +46,7 @@ import se.filledev.procosmetics.api.util.item.ItemBuilder;
 import se.filledev.procosmetics.cosmetic.CosmeticImpl;
 import se.filledev.procosmetics.cosmetic.gadget.type.GrapplingHook;
 import se.filledev.procosmetics.menu.menus.purchase.AmmoPurchaseMenu;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.item.ItemBuilderImpl;
 import se.filledev.procosmetics.util.item.ItemIdentifier;
 
@@ -188,7 +189,7 @@ public class GadgetImpl extends CosmeticImpl<GadgetType, GadgetBehavior> impleme
         if (applyCooldown && cosmeticType.getCooldown() > 0.0d) {
             user.setCooldown(cosmeticType, cosmeticType.getCooldown());
 
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            Scheduler.runLater(player.getLocation(), () -> {
                 if (player.isOnline() && isEquipped()) {
                     user.sendActionBar(user.translate(
                             "cosmetic.gadgets.cooldown.ready",

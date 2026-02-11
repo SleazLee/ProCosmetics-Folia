@@ -5,6 +5,7 @@ main: se.filledev.procosmetics.ProCosmeticsPlugin
 load: POSTWORLD
 softdepend: [ CMI, Essentials, MVdWPlaceholderAPI, Multiverse-Core, PremiumVanish, PlaceholderAPI, PlayerPoints, PlotSquared, SuperVanish, Vault, WorldEdit, WorldGuard ]
 api-version: 1.21
+folia-supported: true
 commands:
   procosmetics:
     description: ProCosmetics Command
@@ -33,7 +34,6 @@ commands:
     description: Toggles the self view
     usage: /toggleselfview <type>
     permission: procosmetics.command.toggleselfview
-
 
 
 

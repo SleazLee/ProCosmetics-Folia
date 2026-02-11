@@ -36,6 +36,7 @@ import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.cosmetic.morph.FlyableMorph;
 import se.filledev.procosmetics.util.MathUtil;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 
 public class Wither extends FlyableMorph implements Listener {
 
@@ -61,7 +62,7 @@ public class Wither extends FlyableMorph implements Listener {
             MetadataUtil.setCustomEntity(skull);
             player.getWorld().playSound(player, Sound.ENTITY_WITHER_SHOOT, 1.0f, 1.0f);
 
-            context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(), this::despawnSkull, 60L);
+            Scheduler.runLater(player.getLocation(), this::despawnSkull, 60L);
             return InteractionResult.success();
         }
         return InteractionResult.noAction();

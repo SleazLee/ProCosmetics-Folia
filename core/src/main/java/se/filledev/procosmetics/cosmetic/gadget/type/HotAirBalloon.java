@@ -33,6 +33,7 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.api.util.structure.type.ParentBlockDisplayStructure;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.structure.type.ParentBlockDisplayStructureImpl;
 
 public class HotAirBalloon implements GadgetBehavior {
@@ -72,10 +73,7 @@ public class HotAirBalloon implements GadgetBehavior {
 
         context.getUser().setFallDamageProtection((int) context.getType().getDuration());
 
-        context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(),
-                () -> onUnequip(context),
-                context.getType().getDurationTicks()
-        );
+        Scheduler.runLater(center, () -> onUnequip(context), context.getType().getDurationTicks());
         context.getUser().setFallDamageProtection((int) (context.getType().getDuration() + 6));
         speed = 0.0d;
         return InteractionResult.success();

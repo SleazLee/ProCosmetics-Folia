@@ -17,8 +17,8 @@ repositories {
 }
 
 dependencies {
-    // Spigot API
-    compileOnly("org.spigotmc:spigot-api:1.21.10-R0.1-SNAPSHOT")
+    // Paper API
+    compileOnly("io.papermc.paper:paper-api:${rootProject.extra["paperApiVersion_1_21_11"]}")
 
     compileOnly("net.kyori:adventure-api:4.26.1")
     compileOnly("net.kyori:adventure-text-minimessage:4.26.1")
@@ -28,8 +28,8 @@ dependencies {
     // Annotations
     compileOnly("org.jetbrains:annotations:26.0.2-1")
 
-    // NoteBlockAPI
-    compileOnly("com.github.FilleDev:NoteBlockAPI:1c5500b038")
+    // NoteBlockAPI (disabled for Folia compatibility)
+    // compileOnly("com.github.FilleDev:NoteBlockAPI:1c5500b038")
 }
 
 publishing {
