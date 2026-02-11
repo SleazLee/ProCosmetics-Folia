@@ -33,6 +33,7 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetBehavior;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.util.MathUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.material.Materials;
 
 public class PartyPopper implements GadgetBehavior {
@@ -52,7 +53,7 @@ public class PartyPopper implements GadgetBehavior {
         location = context.getPlayer().getLocation();
         started = true;
 
-        context.getPlugin().getJavaPlugin().getServer().getScheduler().runTaskLater(context.getPlugin().getJavaPlugin(), () -> {
+        Scheduler.runLater(location, () -> {
                     started = false;
                     i = 0;
                 },

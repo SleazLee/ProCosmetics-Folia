@@ -23,12 +23,10 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.scoreboard.Scoreboard;
-import org.bukkit.scoreboard.Team;
-import se.filledev.procosmetics.ProCosmeticsPlugin;
 import se.filledev.procosmetics.api.nms.EntityTracker;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.nms.entitytype.CachedEntityType;
+import se.filledev.procosmetics.util.Scheduler;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -36,7 +34,6 @@ import java.util.Collection;
 
 public abstract class NMSEntityImpl<T> implements NMSEntity {
 
-    private static final String TEAM_NAME = "PROCOSMETICS";
     private static final double MAXIMUM_DISTANCE_SQUARED_BEFORE_TELEPORT = 16 * 16;
     private static final double MAXIMUM_DISTANCE_SQUARED_BEFORE_PATH_FINDING = 5 * 5;
 
@@ -269,13 +266,24 @@ public abstract class NMSEntityImpl<T> implements NMSEntity {
 
         if (distanceSquared < MAXIMUM_DISTANCE_SQUARED_BEFORE_TELEPORT) {
             if (distanceSquared > MAXIMUM_DISTANCE_SQUARED_BEFORE_PATH_FINDING) {
-                navigateTo(location.add(2.0d, 0.0d, 2.0d), 1.5d);
+                Location target = location.add(2.0d, 0.0d, 2.0d);
+                if (Scheduler.isFolia()) {
+                    // Avoid NMS pathfinding on Folia (can trigger cross-region chunk access).
+                    bukkitEntity.teleportAsync(target);
+                } else {
+                    navigateTo(target, 1.5d);
+                }
             }
         } else {
             entityLocation.setY(location.getY());
 
             if (location.distanceSquared(entityLocation) >= MAXIMUM_DISTANCE_SQUARED_BEFORE_TELEPORT) {
-                bukkitEntity.teleport(location.add(2.0d, 0.0d, 2.0d));
+                Location target = location.add(2.0d, 0.0d, 2.0d);
+                if (Scheduler.isFolia()) {
+                    bukkitEntity.teleportAsync(target);
+                } else {
+                    bukkitEntity.teleport(target);
+                }
             }
         }
     }
@@ -292,41 +300,14 @@ public abstract class NMSEntityImpl<T> implements NMSEntity {
 
     @Override
     public void addCollision(Player player) {
-        Team team = player.getScoreboard().getTeam(TEAM_NAME);
-
-        if (team == null) {
-            return;
-        }
-        Scoreboard mainScoreboard = ProCosmeticsPlugin.getPlugin().getServer().getScoreboardManager().getMainScoreboard();
-        Entity bukkitEntity = getBukkitEntity();
-
-        if (bukkitEntity != null) {
-            if (player.getScoreboard().equals(mainScoreboard) && team.getSize() > 1) {
-                team.removeEntry(bukkitEntity.getUniqueId().toString());
-            } else {
-                team.unregister();
-            }
-        }
+        // Scoreboards are not supported on Folia; collision handling is disabled.
+        return;
     }
 
     @Override
     public void removeCollision(Player player) {
-        Scoreboard scoreboard = player.getScoreboard();
-        Team team = scoreboard.getTeam(TEAM_NAME);
-
-        if (team == null) {
-            team = scoreboard.registerNewTeam(TEAM_NAME);
-            team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
-        }
-        Entity bukkitEntity = getBukkitEntity();
-
-        if (bukkitEntity != null) {
-            String uuid = bukkitEntity.getUniqueId().toString();
-
-            if (!team.hasEntry(uuid)) {
-                team.addEntry(uuid);
-            }
-        }
+        // Scoreboards are not supported on Folia; collision handling is disabled.
+        return;
     }
 
     public abstract Object getNMSEntity();

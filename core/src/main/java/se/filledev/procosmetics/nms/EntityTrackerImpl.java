@@ -24,6 +24,7 @@ import se.filledev.procosmetics.ProCosmeticsPlugin;
 import se.filledev.procosmetics.api.nms.EntityTracker;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.util.AbstractRunnable;
+import se.filledev.procosmetics.util.Scheduler;
 
 import java.util.*;
 import java.util.function.BiPredicate;
@@ -287,7 +288,12 @@ public class EntityTrackerImpl extends AbstractRunnable implements EntityTracker
 
     @Override
     public void destroyAfter(int ticks) {
-        PLUGIN.getServer().getScheduler().runTaskLater(PLUGIN, this::destroy, ticks);
+        Location trackingLocation = getTrackingLocation();
+        if (trackingLocation != null) {
+            Scheduler.runLater(trackingLocation, this::destroy, ticks);
+            return;
+        }
+        Scheduler.runLater(this::destroy, ticks);
     }
 
     @Override
