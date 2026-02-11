@@ -266,13 +266,7 @@ public abstract class NMSEntityImpl<T> implements NMSEntity {
 
         if (distanceSquared < MAXIMUM_DISTANCE_SQUARED_BEFORE_TELEPORT) {
             if (distanceSquared > MAXIMUM_DISTANCE_SQUARED_BEFORE_PATH_FINDING) {
-                Location target = location.add(2.0d, 0.0d, 2.0d);
-                if (Scheduler.isFolia()) {
-                    // Avoid NMS pathfinding on Folia (can trigger cross-region chunk access).
-                    bukkitEntity.teleportAsync(target);
-                } else {
-                    navigateTo(target, 1.5d);
-                }
+                navigateTo(location.add(2.0d, 0.0d, 2.0d), 1.5d);
             }
         } else {
             entityLocation.setY(location.getY());
