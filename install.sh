@@ -85,7 +85,7 @@ curl -o BuildTools.jar https://hub.spigotmc.org/jenkins/job/BuildTools/lastSucce
 
 # List of supported Minecraft versions
 for mcVersion in "1.21.11"; do
-   snap="$mcVersion-R0.1-SNAPSHOT"
+   snap="$mcVersion-R0.2-SNAPSHOT"
    spigotRepository="$HOME/.m2/repository/org/spigotmc/spigot/$snap/spigot-$snap"
    mcSrvRepository="$HOME/.m2/repository/org/spigotmc/minecraft-server/$snap/minecraft-server-$snap"
 
