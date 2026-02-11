@@ -132,6 +132,10 @@ public abstract class CosmeticImpl<T extends CosmeticType<T, B>,
             cancel();
             return;
         }
+        if (Scheduler.isFolia()) {
+            Scheduler.run(player.getLocation(), this::onUpdate);
+            return;
+        }
         onUpdate();
     }
 
