@@ -23,14 +23,13 @@ import org.jetbrains.annotations.Nullable;
 import se.filledev.procosmetics.ProCosmeticsPlugin;
 import se.filledev.procosmetics.api.nms.EntityTracker;
 import se.filledev.procosmetics.api.nms.NMSEntity;
-import se.filledev.procosmetics.util.AbstractRunnable;
 import se.filledev.procosmetics.util.Scheduler;
 
 import java.util.*;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
-public class EntityTrackerImpl extends AbstractRunnable implements EntityTracker {
+public class EntityTrackerImpl implements EntityTracker, Runnable {
 
     private static final ProCosmeticsPlugin PLUGIN = ProCosmeticsPlugin.getPlugin();
     private static final long DEFAULT_UPDATE_INTERVAL = 20L;
@@ -53,6 +52,9 @@ public class EntityTrackerImpl extends AbstractRunnable implements EntityTracker
     private final Location reusableLocation = new Location(null, 0.0d, 0.0d, 0.0d);
     private final Set<Player> playersToAdd = new HashSet<>();
     private final Set<Player> playersToRemove = new HashSet<>();
+
+    private volatile Scheduler.Task trackingTask;
+    private volatile boolean tracking;
 
     public EntityTrackerImpl() {
         this(null);
@@ -93,14 +95,22 @@ public class EntityTrackerImpl extends AbstractRunnable implements EntityTracker
     @Override
     public void startTracking() {
         if (!isTracking()) {
-            runTaskTimer(PLUGIN, startDelay, updateInterval);
+            tracking = true;
+            scheduleNextRun(startDelay);
         }
     }
 
     @Override
     public void stopTracking() {
         if (isTracking()) {
-            cancel();
+            tracking = false;
+
+            Scheduler.Task task = trackingTask;
+            if (task != null) {
+                task.cancel();
+                trackingTask = null;
+            }
+
             // Despawn all entities for all viewers
             removeViewers(viewers);
         }
@@ -108,7 +118,7 @@ public class EntityTrackerImpl extends AbstractRunnable implements EntityTracker
 
     @Override
     public boolean isTracking() {
-        return isRunning();
+        return tracking;
     }
 
     @Override
@@ -299,12 +309,23 @@ public class EntityTrackerImpl extends AbstractRunnable implements EntityTracker
     @Override
     public void updateViewers() {
         // Force immediate update
-        run();
+        tick(false);
     }
 
     @Override
     public void run() {
+        tick(true);
+    }
+
+    private void tick(boolean shouldReschedule) {
+        if (!tracking) {
+            return;
+        }
+
         if (entities.isEmpty()) {
+            if (shouldReschedule) {
+                scheduleNextRun(updateInterval);
+            }
             return;
         }
         playersToAdd.clear();
@@ -313,6 +334,9 @@ public class EntityTrackerImpl extends AbstractRunnable implements EntityTracker
         Location trackingLocation = getTrackingLocation();
 
         if (trackingLocation == null) {
+            if (shouldReschedule) {
+                scheduleNextRun(updateInterval);
+            }
             return;
         }
         // Remove offline viewers
@@ -342,6 +366,23 @@ public class EntityTrackerImpl extends AbstractRunnable implements EntityTracker
         if (!playersToRemove.isEmpty()) {
             removeViewers(playersToRemove);
         }
+
+        if (shouldReschedule) {
+            scheduleNextRun(updateInterval);
+        }
+    }
+
+    private void scheduleNextRun(long delayTicks) {
+        if (!tracking) {
+            return;
+        }
+
+        Runnable taskRunnable = this::run;
+        Location trackingLocation = getTrackingLocation();
+
+        trackingTask = trackingLocation != null
+                ? Scheduler.runLater(trackingLocation, taskRunnable, delayTicks)
+                : Scheduler.runLater(taskRunnable, delayTicks);
     }
 
     /**
