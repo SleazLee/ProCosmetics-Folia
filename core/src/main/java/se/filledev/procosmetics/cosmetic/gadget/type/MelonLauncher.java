@@ -108,9 +108,10 @@ public class MelonLauncher implements GadgetBehavior, Listener {
                 items.add(droppedItem);
                 slices.add(droppedItem);
             }
+            Location despawnLocation = location.clone();
             despawn();
 
-            Scheduler.runLater(item.getLocation(), () -> despawnSlices(items), SLICES_DESPAWN);
+            Scheduler.runLater(despawnLocation, () -> despawnSlices(items), SLICES_DESPAWN);
         } else {
             if (item.getTicksLived() > THROWN_ITEM_DESPAWN) {
                 despawn();
