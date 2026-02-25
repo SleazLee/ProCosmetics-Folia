@@ -70,6 +70,7 @@ public class MorphImpl extends CosmeticImpl<MorphType, MorphBehavior> implements
         }
         nmsEntity.setPositionRotation(player.getLocation(location));
         behavior.setupEntity(this, nmsEntity);
+        nmsEntity.getTracker().setOwner(player);
         nmsEntity.getTracker().startTracking();
 
         player.setInvisible(true);

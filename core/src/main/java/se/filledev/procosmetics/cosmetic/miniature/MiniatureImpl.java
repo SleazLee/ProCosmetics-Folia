@@ -53,7 +53,7 @@ public class MiniatureImpl extends CosmeticImpl<MiniatureType, MiniatureBehavior
     @Override
     protected void onEquip() {
         spawnEntity();
-        runTaskTimerAsynchronously(plugin, 0L, 1L);
+        runTaskTimer(plugin, 0L, 1L);
     }
 
     @Override
@@ -132,6 +132,7 @@ public class MiniatureImpl extends CosmeticImpl<MiniatureType, MiniatureBehavior
             configureDisplayEntity(display);
         }
         behavior.setupEntity(this, entity);
+        entity.getTracker().setOwner(player);
         entity.getTracker().startTracking();
     }
 
