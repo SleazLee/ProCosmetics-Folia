@@ -64,7 +64,13 @@ public class ChickenParachute implements GadgetBehavior {
         user.setFallDamageProtection(15);
 
         Location location = player.getLocation().add(0.0d, PARACHUTE_START_HEIGHT, 0.0d);
-        player.teleport(location);
+
+        if (Scheduler.isFolia()) {
+            player.teleportAsync(location);
+        } else {
+            player.teleport(location);
+        }
+
         player.setVelocity(new Vector());
         location.add(0.0d, PARACHUTE_OFFSET, 0.0d);
         location.setPitch(0.0f);
