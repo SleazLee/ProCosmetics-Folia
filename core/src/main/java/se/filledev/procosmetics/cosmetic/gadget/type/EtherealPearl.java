@@ -39,6 +39,7 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetBehavior;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.util.LocationUtil;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 
 public class EtherealPearl implements GadgetBehavior, Listener {
 
@@ -113,7 +114,12 @@ public class EtherealPearl implements GadgetBehavior, Listener {
             Location playerLocation = player.getLocation();
             location.setPitch(playerLocation.getPitch());
             location.setYaw(playerLocation.getYaw());
-            player.teleport(location);
+
+            if (Scheduler.isFolia()) {
+                player.teleportAsync(location);
+            } else {
+                player.teleport(location);
+            }
 
             event.setCancelled(true);
         }
