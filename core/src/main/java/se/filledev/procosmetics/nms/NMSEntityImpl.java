@@ -294,14 +294,20 @@ public abstract class NMSEntityImpl<T> implements NMSEntity {
 
     @Override
     public void addCollision(Player player) {
-        // Scoreboards are not supported on Folia; collision handling is disabled.
-        return;
+        Entity bukkitEntity = getBukkitEntity();
+
+        if (bukkitEntity instanceof LivingEntity livingEntity) {
+            livingEntity.getCollidableExemptions().remove(player.getUniqueId());
+        }
     }
 
     @Override
     public void removeCollision(Player player) {
-        // Scoreboards are not supported on Folia; collision handling is disabled.
-        return;
+        Entity bukkitEntity = getBukkitEntity();
+
+        if (bukkitEntity instanceof LivingEntity livingEntity) {
+            livingEntity.getCollidableExemptions().add(player.getUniqueId());
+        }
     }
 
     public abstract Object getNMSEntity();
