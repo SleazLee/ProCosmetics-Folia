@@ -212,11 +212,13 @@ public class UserImpl implements User {
                 NMSEntity nmsEntity = morph.getNMSEntity();
 
                 if (visible) {
+                    nmsEntity.setNoClip(true);
                     nmsEntity.removeCollision(player);
                     nmsEntity.getTracker().removeAntiViewer(player);
                 } else {
                     nmsEntity.getTracker().addAntiViewer(player);
                     nmsEntity.addCollision(player);
+                    nmsEntity.setNoClip(false);
                 }
             }
         }
