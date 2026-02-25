@@ -64,10 +64,8 @@ public class MorphImpl extends CosmeticImpl<MorphType, MorphBehavior> implements
         }
 
         if (!user.hasSelfViewMorph()) {
-            nmsEntity.setNoClip(false);
             nmsEntity.getTracker().addAntiViewer(player);
         } else {
-            nmsEntity.setNoClip(true);
             nmsEntity.removeCollision(player);
         }
         nmsEntity.setPositionRotation(player.getLocation(location));
@@ -93,7 +91,6 @@ public class MorphImpl extends CosmeticImpl<MorphType, MorphBehavior> implements
         if (user.hasSelfViewMorph()) {
             nmsEntity.addCollision(player);
         }
-        nmsEntity.setNoClip(false);
         player.setInvisible(false);
 
         nmsEntity.getTracker().destroy();
