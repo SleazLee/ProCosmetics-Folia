@@ -42,6 +42,9 @@ public class ParticleEffectImpl extends CosmeticImpl<ParticleEffectType, Particl
 
     @Override
     protected void onUpdate() {
+        if (!plugin.getBmeParticleAfkBridge().shouldRenderParticle(player)) {
+            return;
+        }
         if (sneakToPause && player.isSneaking()) {
             return;
         }

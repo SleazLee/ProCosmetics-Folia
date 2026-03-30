@@ -41,6 +41,7 @@ import se.filledev.procosmetics.config.ConfigManagerImpl;
 import se.filledev.procosmetics.cosmetic.registry.CategoryRegistriesImpl;
 import se.filledev.procosmetics.cosmetic.registry.CosmeticRarityRegistryImpl;
 import se.filledev.procosmetics.economy.EconomyManagerImpl;
+import se.filledev.procosmetics.hook.bmessentials.BMEParticleAfkBridge;
 import se.filledev.procosmetics.listener.*;
 import se.filledev.procosmetics.listener.hook.cmi.CMIVanishListener;
 import se.filledev.procosmetics.listener.hook.essentials.EssentialsVanishListener;
@@ -96,6 +97,7 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
     private RedisManager redisManager;
     private Database database;
     private WorldGuardManager worldGuardManager;
+    private BMEParticleAfkBridge bmeParticleAfkBridge;
 
     @Override
     public void onLoad() {
@@ -103,6 +105,7 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
         logger = getLogger();
         syncExecutor = Scheduler::run;
         ayncExecutor = Scheduler::runAsync;
+        bmeParticleAfkBridge = new BMEParticleAfkBridge(this);
 
         if (!VersionUtil.isSupported()) {
             LogUtil.printUnsupported();
@@ -148,6 +151,7 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
         registerListeners();
         registerCommands();
         hookPlugins();
+        bmeParticleAfkBridge.initialize();
         checkUpdate();
 
         // NoteBlockAPI is disabled for Folia compatibility.
@@ -187,6 +191,9 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
         }
         if (redisManager != null) {
             redisManager.shutdown();
+        }
+        if (bmeParticleAfkBridge != null) {
+            bmeParticleAfkBridge.shutdown();
         }
 
         for (User user : userManager.getAllConnected()) {
@@ -417,5 +424,9 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
 
     public WorldGuardManager getWorldGuardManager() {
         return worldGuardManager;
+    }
+
+    public BMEParticleAfkBridge getBmeParticleAfkBridge() {
+        return bmeParticleAfkBridge;
     }
 }
