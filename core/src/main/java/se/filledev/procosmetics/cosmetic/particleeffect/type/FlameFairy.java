@@ -148,11 +148,11 @@ public class FlameFairy implements ParticleEffectBehavior {
                 currentLocation.getZ(),
                 1, 0.02d, 0.02d, 0.02d, 0.0d);
 
-        world.spawnParticle(Particle.LAVA,
-                currentLocation.getX(),
-                currentLocation.getY(),
-                currentLocation.getZ(),
-                1, 0.0d, 0.0d, 0.0d, 0.0d);
+//        world.spawnParticle(Particle.LAVA,
+//                currentLocation.getX(),
+//                currentLocation.getY(),
+//                currentLocation.getZ(),
+//                1, 0.0d, 0.0d, 0.0d, 0.0d);
     }
 
     private void updateGoalLocation(CosmeticContext<ParticleEffectType> context) {
