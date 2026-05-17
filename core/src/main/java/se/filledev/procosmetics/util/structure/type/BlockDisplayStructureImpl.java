@@ -1,6 +1,6 @@
 /*
  * This file is part of ProCosmetics - https://github.com/FilleDev/ProCosmetics
- * Copyright (C) 2025 FilleDev and contributors
+ * Copyright (C) 2025-2026 FilleDev and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,11 +55,12 @@ public class BlockDisplayStructureImpl extends StructureImpl<NMSEntity> implemen
         for (Map.Entry<Vector, BlockData> entry : data.getPlacement().entrySet()) {
             Vector vector = MathUtil.rotateAroundAxisY(entry.getKey().clone(), angle);
             BlockData blockData = entry.getValue().clone();
-
-            rotate(blockData, location.getYaw());
-
             NMSEntity nmsFallingBlock = PLUGIN.getNMSManager().createEntity(location.getWorld(), EntityType.BLOCK_DISPLAY, tracker);
             Location displayLocation = location.clone().add(vector);
+            displayLocation.setYaw(0.0f);
+            displayLocation.setPitch(0.0f);
+
+            rotate(blockData, location.getYaw());
             positionDisplayBeforeBukkitSetup(nmsFallingBlock, displayLocation);
 
             if (nmsFallingBlock.getBukkitEntity() instanceof BlockDisplay blockDisplay) {

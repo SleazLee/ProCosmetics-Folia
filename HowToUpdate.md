@@ -49,14 +49,15 @@ This flag tells Folia servers the plugin is safe to load.
 
 ## 4) Paper API Dependencies
 
-The project should compile against the Paper API, not Spigot:
+The API module should follow upstream's target Spigot API, while the core module also compiles against Paper so Folia scheduler APIs remain available:
 
-- `core/build.gradle.kts`: `io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT`
-- `api/build.gradle.kts`: `io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT`
-- `v1_21_11/build.gradle.kts`: `io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT`
-- `v1_21_10/build.gradle.kts`: `io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT`
+- `api/build.gradle.kts`: `org.spigotmc:spigot-api:26.1.1-R0.1-SNAPSHOT`
+- `core/build.gradle.kts`: `org.spigotmc:spigot-api:26.1.1-R0.1-SNAPSHOT`
+- `core/build.gradle.kts`: `io.papermc.paper:paper-api:${rootProject.extra["paperApiVersion_foliaApi"]}`
 
-If Paper updates its API version, update these coordinates consistently.
+The `v26_1` NMS module still compiles against the full Spigot/CraftBukkit artifact for NMS access.
+
+If Paper updates its Folia scheduler API coordinates, update `paperApiVersion_foliaApi` in `build.gradle.kts`.
 
 ## 5) Shutdown Task Cancellation
 
@@ -82,20 +83,19 @@ When adding new features:
 
 NoteBlockAPI-based music cosmetics are currently disabled due to Folia incompatibilities. The code remains commented for future rework, but should not be re-enabled without a Folia-safe audio system.
 
-## 9) Option B: Build NMS Subprojects Locally (BuildTools)
+## 9) Build NMS Subprojects Locally (BuildTools)
 
-The `v1_21_10` and `v1_21_11` modules use NMS and CraftBukkit classes that are **not** available in the Paper API. If you need these modules to compile locally, you must install the corresponding server artifacts into your local Maven repository.
+The `v26_1` module uses NMS and CraftBukkit classes that are **not** available in the Paper API. If you need this module to compile locally, you must install the corresponding server artifacts into your local Maven repository.
 
 1. Download BuildTools from Spigot:
    - https://www.spigotmc.org/wiki/buildtools/
-2. Run BuildTools for each required version:
+2. Run BuildTools for the required version:
    ```bash
-   java -jar BuildTools.jar --rev 1.21.10
-   java -jar BuildTools.jar --rev 1.21.11
+   java -jar BuildTools.jar --rev 26.1.1
    ```
 3. Re-run the build:
    ```bash
-   ./gradlew :v1_21_10:compileJava :v1_21_11:compileJava
+   ./gradlew :v26_1:compileJava
    ```
 
 BuildTools installs the NMS/CraftBukkit artifacts into `~/.m2/repository/org/spigotmc/`, which Gradle resolves when compiling the NMS subprojects.
