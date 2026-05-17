@@ -2,16 +2,15 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.apache.tools.ant.filters.ReplaceTokens
 import java.net.URI
 import java.net.HttpURLConnection
-import java.net.URL
 
 plugins {
     java
-    id("com.gradleup.shadow") version "8.3.8"
-    id("com.diffplug.spotless") version "8.0.0"
+    id("com.gradleup.shadow") version "9.3.1"
+    id("com.diffplug.spotless") version "8.4.0"
 }
 
 group = "se.filledev"
-version = "2.0.2"
+version = "2.0.4"
 
 val paperRepoUrl = "https://repo.papermc.io/repository/maven-public/"
 
@@ -35,14 +34,7 @@ fun resolvePaperApiVersion(candidates: List<String>): String {
     return candidates.first()
 }
 
-extra["paperApiVersion_1_21_10"] = resolvePaperApiVersion(
-    listOf(
-        "1.21.10-R0.1-SNAPSHOT",
-        "1.21.10-R0.2-SNAPSHOT",
-        "1.21.10-R0.3-SNAPSHOT"
-    )
-)
-extra["paperApiVersion_1_21_11"] = resolvePaperApiVersion(
+extra["paperApiVersion_foliaApi"] = resolvePaperApiVersion(
     listOf(
         "1.21.11-R0.1-SNAPSHOT",
         "1.21.11-R0.2-SNAPSHOT",
@@ -52,7 +44,7 @@ extra["paperApiVersion_1_21_11"] = resolvePaperApiVersion(
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
 
@@ -71,7 +63,18 @@ tasks.processResources {
 // Configure shadow jar
 tasks.named<ShadowJar>("shadowJar") {
     archiveClassifier.set("")
-    relocate("org.bstats", "se.filledev.procosmetics.bstats")
+
+    // Relocate libs that are not exposed in the API module
+    val basePackage = "se.filledev.procosmetics.libs"
+
+    val relocations = mapOf(
+        "dev.dejvokep.boostedyaml" to "boostedyaml",
+        "com.zaxxer.hikari" to "hikari",
+        "com.mongodb" to "mongodb",
+        "redis.clients" to "jedis",
+        "org.bstats" to "bstats"
+    )
+    relocations.forEach { (from, to) -> relocate(from, "$basePackage.$to") }
 }
 
 // Make build depend on shadowJar instead of jar
@@ -103,6 +106,7 @@ subprojects {
     repositories {
         mavenLocal()
         mavenCentral()
+        maven("https://jitpack.io")
 
         // Spigot
         maven("https://oss.sonatype.org/content/repositories/snapshots")
@@ -120,7 +124,7 @@ subprojects {
         maven("https://repo.rosewooddev.io/repository/public/")
         maven("https://repo.grim.ac/snapshots/")
     }
-    val javaVersion = findProperty("javaVersion")?.toString()?.toIntOrNull() ?: 21
+    val javaVersion = findProperty("javaVersion")?.toString()?.toIntOrNull() ?: 25
 
     java {
         toolchain {
@@ -142,6 +146,7 @@ subprojects {
             removeUnusedImports()
             //palantirJavaFormat("2.81.0").style("GOOGLE").formatJavadoc(true)
             licenseHeaderFile(rootProject.file("config/spotless/license-header.txt"), "package ")
+                .updateYearWithLatest(true)
         }
     }
 
