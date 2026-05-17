@@ -37,9 +37,9 @@ import se.filledev.procosmetics.api.nms.EntityTracker;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.api.util.structure.type.BlockStructure;
 import se.filledev.procosmetics.nms.EntityTrackerImpl;
+import se.filledev.procosmetics.util.CosmeticEntitySpawner;
 import se.filledev.procosmetics.util.FastMathUtil;
 import se.filledev.procosmetics.util.MathUtil;
-import se.filledev.procosmetics.util.MetadataUtil;
 import se.filledev.procosmetics.util.RGBFade;
 import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.structure.type.BlockStructureImpl;
@@ -90,19 +90,22 @@ public class MerryGoRound implements GadgetBehavior, Listener {
             Location leashLoc = location.clone().add(0.0d, LEASH_Y_OFFSET, 0.0d);
             location.setY(getYOffset(i));
 
-            ArmorStand armorStand = location.getWorld().spawn(location, ArmorStand.class, entity -> {
+            ArmorStand armorStand = CosmeticEntitySpawner.spawnLiving(location, ArmorStand.class, entity -> {
                 entity.setGravity(false);
                 entity.setVisible(false);
-
-                MetadataUtil.setCustomEntity(entity);
             });
+
+            if (armorStand == null) {
+                onUnequip(context);
+                return InteractionResult.fail();
+            }
             NMSEntity nmsEntityArmorStand = context.getPlugin().getNMSManager().entityToNMSEntity(armorStand);
 
             NMSEntity nmsEntityHorse = context.getPlugin().getNMSManager().createEntity(world, EntityType.HORSE, tracker);
+            positionHorseBeforeBukkitSetup(nmsEntityHorse, location);
             Horse horse = ((Horse) nmsEntityHorse.getBukkitEntity());
             horse.getInventory().setSaddle(SADDLE_ITEM);
             horse.setColor(HORSE_COLORS.get(i % HORSE_COLORS.size()));
-            nmsEntityHorse.setPositionRotation(location);
 
             NMSEntity nmsEntityLeash = context.getPlugin().getNMSManager().createEntity(world, EntityType.BAT, tracker);
             nmsEntityLeash.setPositionRotation(leashLoc);
@@ -116,18 +119,60 @@ public class MerryGoRound implements GadgetBehavior, Listener {
         }
         tracker.startTracking();
 
-        List<Player> nearbyPlayers = MathUtil.getClosestPlayersFromLocation(center, 6.0d);
-
-        if (!nearbyPlayers.isEmpty()) {
-            Location teleport = center.clone().add(4.5d, 1.5d, 0.0d);
-            teleport.setDirection(player.getLocation().getDirection());
-
-            for (Player closePlayer : nearbyPlayers) {
-                closePlayer.teleport(teleport);
-            }
-        }
+        moveNearbyPlayersOutOfCarousel(player);
         Scheduler.runLater(center, () -> onUnequip(context), context.getType().getDurationTicks());
         return InteractionResult.success();
+    }
+
+    /**
+     * Moves a virtual horse to its carousel slot before Bukkit horse state is changed.
+     *
+     * <p>Horse color and inventory setters use Bukkit wrapper state. Folia validates that state
+     * against the entity's current region, so the virtual horse must be positioned around the
+     * carousel before saddle and color setup run.</p>
+     *
+     * @param entity the virtual horse being configured
+     * @param location the horse's initial carousel location
+     */
+    private void positionHorseBeforeBukkitSetup(NMSEntity entity, Location location) {
+        entity.setPositionRotation(location);
+    }
+
+    /**
+     * Teleports nearby players from their own schedulers before the carousel starts moving.
+     *
+     * <p>The nearby-entity query is anchored to the carousel region, but each player's teleport is
+     * player state. Dispatching the teleport per player prevents Folia errors when nearby players
+     * are not in the same region as the player who used the gadget.</p>
+     *
+     * @param sourcePlayer the player whose facing direction is used for the exit location
+     */
+    private void moveNearbyPlayersOutOfCarousel(Player sourcePlayer) {
+        Location teleport = center.clone().add(4.5d, 1.5d, 0.0d);
+        teleport.setDirection(sourcePlayer.getLocation().getDirection());
+
+        for (Entity nearbyEntity : center.getWorld().getNearbyEntities(center, 6.0d, 6.0d, 6.0d)) {
+            if (nearbyEntity instanceof Player closePlayer) {
+                teleportPlayerFromOwnRegion(closePlayer, teleport.clone());
+            }
+        }
+    }
+
+    /**
+     * Applies a carousel safety teleport from the target player's owning region.
+     *
+     * <p>Folia player teleports should be initiated from the player scheduler; Paper keeps the
+     * original synchronous teleport behavior.</p>
+     *
+     * @param player the nearby player being moved away from the carousel
+     * @param teleport the destination just outside the ride
+     */
+    private void teleportPlayerFromOwnRegion(Player player, Location teleport) {
+        if (Scheduler.isFolia()) {
+            Scheduler.run(player, () -> player.teleportAsync(teleport));
+            return;
+        }
+        player.teleport(teleport);
     }
 
     private Location getHorseLocation(float angle) {
@@ -143,6 +188,24 @@ public class MerryGoRound implements GadgetBehavior, Listener {
 
     @Override
     public void onUpdate(CosmeticContext<GadgetType> context) {
+        if (center == null) {
+            return;
+        }
+        if (Scheduler.isFolia()) {
+            Scheduler.run(center, this::updateCarousel);
+            return;
+        }
+        updateCarousel();
+    }
+
+    /**
+     * Updates carousel horses, leashes, and particles from the carousel's anchored region.
+     *
+     * <p>The ride remains centered where it was spawned, while the owner can move into another
+     * Folia region. Virtual horse movement and the real armor-stand seats are therefore updated
+     * from the carousel region instead of the player's current region.</p>
+     */
+    private void updateCarousel() {
         if (center == null) {
             return;
         }
@@ -183,15 +246,50 @@ public class MerryGoRound implements GadgetBehavior, Listener {
 
     @Override
     public void onUnequip(CosmeticContext<GadgetType> context) {
+        if (Scheduler.isFolia() && center != null) {
+            Scheduler.run(center, this::cleanupCarousel);
+            return;
+        }
+        cleanupCarousel();
+    }
+
+    /**
+     * Removes carousel blocks, virtual horses, and real armor-stand seats from the carousel region.
+     *
+     * <p>Unequip can be caused by a timer or a player action after the owner has left the ride.
+     * Cleanup stays anchored to the original center so structure removal and seat entity removal are
+     * performed where those objects live on Folia.</p>
+     */
+    private void cleanupCarousel() {
         structure.remove();
 
         tracker.destroy();
 
         for (CoasterHorse coasterHorse : coasterHorses) {
-            coasterHorse.armorStand().getBukkitEntity().remove();
+            removeSeatOnOwningRegion(coasterHorse);
             COASTER_HORSES.remove(coasterHorse);
         }
         coasterHorses.clear();
+        center = null;
+        speed = 0.0f;
+        tick = 0.0f;
+    }
+
+    /**
+     * Removes a carousel armor-stand seat from the seat entity's owning region.
+     *
+     * <p>The carousel radius can straddle a Folia region boundary. Cleanup is anchored to the
+     * carousel center, but each real seat entity still owns its own removal scheduler.</p>
+     *
+     * @param coasterHorse the coaster entry whose seat should be removed
+     */
+    private void removeSeatOnOwningRegion(CoasterHorse coasterHorse) {
+        Entity armorStand = coasterHorse.armorStand().getBukkitEntity();
+        Scheduler.runOwned(armorStand, center, () -> {
+            if (armorStand != null && armorStand.isValid()) {
+                armorStand.remove();
+            }
+        });
     }
 
     @Override

@@ -21,6 +21,7 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Slime;
 import org.bukkit.event.block.Action;
@@ -29,8 +30,7 @@ import org.jetbrains.annotations.Nullable;
 import se.filledev.procosmetics.api.cosmetic.CosmeticContext;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetBehavior;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
-import se.filledev.procosmetics.util.MathUtil;
-import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.CosmeticEntitySpawner;
 import se.filledev.procosmetics.util.Scheduler;
 
 public class SoccerBall implements GadgetBehavior {
@@ -50,20 +50,23 @@ public class SoccerBall implements GadgetBehavior {
     @Override
     public InteractionResult onInteract(CosmeticContext<GadgetType> context, Action action, @Nullable Block clickedBlock, @Nullable Vector clickedPosition) {
         if (slimeBall != null) {
-            slimeBall.remove();
+            removeBallWithEffects(slimeBall);
+            slimeBall = null;
         }
         location = context.getPlayer().getLocation();
         location.setPitch(0.0f);
         location.add(location.getDirection().multiply(2.0d));
 
-        Slime ball = location.getWorld().spawn(location, Slime.class, entity -> {
+        Slime ball = CosmeticEntitySpawner.spawnLiving(location, Slime.class, entity -> {
             entity.setRemoveWhenFarAway(false);
             entity.setSize(2);
 
             context.getPlugin().getNMSManager().entityToNMSEntity(entity).removePathfinder();
-
-            MetadataUtil.setCustomEntity(entity);
         });
+
+        if (ball == null) {
+            return InteractionResult.fail();
+        }
         ballVector.zero();
         slimeBall = ball;
 
@@ -76,10 +79,28 @@ public class SoccerBall implements GadgetBehavior {
         if (slimeBall == null) {
             return;
         }
+        Slime ball = slimeBall;
+        Scheduler.runOwned(ball, location, () -> updateBall(context, ball));
+    }
+
+    /**
+     * Updates the soccer ball from the slime's owning region.
+     *
+     * <p>The ball is a mobile entity and can roll into a different Folia region than the player
+     * who spawned it. Velocity, collision checks, and sound effects are therefore performed from
+     * the slime's scheduler instead of the player-following cosmetic tick.</p>
+     *
+     * @param context the active gadget context
+     * @param ball the slime ball being updated on its owning scheduler
+     */
+    private void updateBall(CosmeticContext<GadgetType> context, Slime ball) {
+        if (slimeBall != ball || !ball.isValid()) {
+            return;
+        }
 
         if (kickTicks-- < 0) {
-            slimeBall.getLocation(location);
-            Player kickPlayer = MathUtil.getClosestVisiblePlayerFeetFromLocation(context.getPlayer(), location, 1.3d);
+            ball.getLocation(location);
+            Player kickPlayer = getNearbyKickPlayer(context.getPlayer(), ball);
 
             if (kickPlayer != null) {
                 location.getWorld().playSound(location, Sound.ENTITY_ZOMBIE_ATTACK_WOODEN_DOOR, 0.5f, 1.5f);
@@ -91,12 +112,12 @@ public class SoccerBall implements GadgetBehavior {
                 vector.setY(0.5d);
 
                 ballVector = vector;
-                slimeBall.setVelocity(vector);
+                ball.setVelocity(vector);
                 kickTicks = 8;
                 return;
             }
         }
-        Vector newVelocity = slimeBall.getVelocity();
+        Vector newVelocity = ball.getVelocity();
         boolean collide = false;
 
         if (newVelocity.getX() == 0.0d) {
@@ -119,24 +140,61 @@ public class SoccerBall implements GadgetBehavior {
         }
 
         if (newVelocity.getX() != 0.0d && newVelocity.getY() != 0.0d && newVelocity.getZ() != 0.0d) {
-            slimeBall.setVelocity(newVelocity);
+            ball.setVelocity(newVelocity);
         }
         ballVector = newVelocity;
 
         if (collide) {
-            slimeBall.getWorld().playSound(slimeBall.getLocation(location), Sound.ENTITY_ZOMBIE_ATTACK_WOODEN_DOOR, 0.5f, 1.5f);
+            ball.getWorld().playSound(ball.getLocation(location), Sound.ENTITY_ZOMBIE_ATTACK_WOODEN_DOOR, 0.5f, 1.5f);
         }
     }
 
     @Override
     public void onUnequip(CosmeticContext<GadgetType> context) {
         if (slimeBall != null) {
-            context.getPlayer().getWorld().playSound(location, Sound.ENTITY_CHICKEN_EGG, 0.5f, 0.0f);
-            location.getWorld().spawnParticle(Particle.CLOUD, location.add(0.0d, 1.0d, 0.0d), 10, 0.15f, 0.15f, 0.15f, 0.05f);
-
-            slimeBall.remove();
+            removeBallWithEffects(slimeBall);
             slimeBall = null;
         }
+    }
+
+    /**
+     * Finds a nearby player from the ball's owning region.
+     *
+     * <p>Using the ball's local nearby-entity query avoids scanning every online player and
+     * reading locations from regions that do not own those players.</p>
+     *
+     * @param owner the player who spawned the ball
+     * @param ball the slime ball currently being updated
+     * @return the first visible nearby player that can kick the ball
+     */
+    private Player getNearbyKickPlayer(Player owner, Slime ball) {
+        for (Entity nearby : ball.getNearbyEntities(1.3d, 1.3d, 1.3d)) {
+            if (nearby instanceof Player kickPlayer && owner.canSee(kickPlayer)) {
+                return kickPlayer;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Removes the soccer ball from the slime's owning region with its despawn effects.
+     *
+     * <p>Delayed cleanup can run after the ball crosses a Folia boundary, so location reads,
+     * particles, sound, and removal are dispatched to the slime scheduler.</p>
+     *
+     * @param ball the slime ball to remove
+     */
+    private void removeBallWithEffects(Slime ball) {
+        Scheduler.runOwned(ball, location, () -> {
+            if (!ball.isValid()) {
+                return;
+            }
+            Location ballLocation = ball.getLocation();
+            ballLocation.getWorld().playSound(ballLocation, Sound.ENTITY_CHICKEN_EGG, 0.5f, 0.0f);
+            ballLocation.getWorld().spawnParticle(Particle.CLOUD, ballLocation.add(0.0d, 1.0d, 0.0d),
+                    10, 0.15f, 0.15f, 0.15f, 0.05f);
+            ball.remove();
+        });
     }
 
     @Override

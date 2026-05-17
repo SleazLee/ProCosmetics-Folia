@@ -18,10 +18,12 @@
 package se.filledev.procosmetics.nms;
 
 import org.bukkit.Location;
+import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import se.filledev.procosmetics.api.nms.EntityTracker;
 import se.filledev.procosmetics.api.nms.NMSEntity;
@@ -36,6 +38,7 @@ public abstract class NMSEntityImpl<T> implements NMSEntity {
 
     private static final double MAXIMUM_DISTANCE_SQUARED_BEFORE_TELEPORT = 16 * 16;
     private static final double MAXIMUM_DISTANCE_SQUARED_BEFORE_PATH_FINDING = 5 * 5;
+    private static final double FOLLOW_PATHFINDING_SPEED = 1.5d;
 
     protected final EntityTracker entityTracker;
     protected Location previousLocation;
@@ -255,31 +258,101 @@ public abstract class NMSEntityImpl<T> implements NMSEntity {
 
     @Override
     public void follow(Player player) {
-        Location location = player.getLocation();
         Entity bukkitEntity = getBukkitEntity();
 
-        if (bukkitEntity == null || location.getWorld() != bukkitEntity.getWorld()) {
+        if (bukkitEntity == null) {
+            return;
+        }
+        if (Scheduler.isFolia() && !Bukkit.isOwnedByCurrentRegion(player)) {
+            Scheduler.run(player, () -> follow(player));
+            return;
+        }
+        Location targetLocation = player.getLocation();
+
+        if (Scheduler.isFolia() && !Bukkit.isOwnedByCurrentRegion(bukkitEntity)) {
+            Scheduler.run(bukkitEntity, () -> followOnOwningThread(targetLocation));
+            return;
+        }
+        followOnOwningThread(targetLocation);
+    }
+
+    private void followOnOwningThread(Location targetLocation) {
+        Entity bukkitEntity = getBukkitEntity();
+
+        if (bukkitEntity == null || !bukkitEntity.isValid()) {
             return;
         }
         Location entityLocation = bukkitEntity.getLocation();
-        double distanceSquared = location.distanceSquared(entityLocation);
 
-        if (distanceSquared < MAXIMUM_DISTANCE_SQUARED_BEFORE_TELEPORT) {
-            if (distanceSquared > MAXIMUM_DISTANCE_SQUARED_BEFORE_PATH_FINDING) {
-                navigateTo(location.add(2.0d, 0.0d, 2.0d), 1.5d);
+        if (targetLocation.getWorld() != entityLocation.getWorld()) {
+            return;
+        }
+        Location followTarget = targetLocation.clone().add(2.0d, 0.0d, 2.0d);
+
+        if (Scheduler.isFolia() && !Bukkit.isOwnedByCurrentRegion(bukkitEntity)) {
+            stopEntityPathfinding(bukkitEntity);
+            bukkitEntity.teleportAsync(followTarget);
+            return;
+        }
+        double distanceSquared = targetLocation.distanceSquared(entityLocation);
+
+        if (distanceSquared >= MAXIMUM_DISTANCE_SQUARED_BEFORE_TELEPORT) {
+            stopEntityPathfinding(bukkitEntity);
+            if (Scheduler.isFolia()) {
+                bukkitEntity.teleportAsync(followTarget);
+            } else {
+                bukkitEntity.teleport(followTarget);
             }
-        } else {
-            entityLocation.setY(location.getY());
+            return;
+        }
 
-            if (location.distanceSquared(entityLocation) >= MAXIMUM_DISTANCE_SQUARED_BEFORE_TELEPORT) {
-                Location target = location.add(2.0d, 0.0d, 2.0d);
-                if (Scheduler.isFolia()) {
-                    bukkitEntity.teleportAsync(target);
-                } else {
-                    bukkitEntity.teleport(target);
-                }
+        if (distanceSquared > MAXIMUM_DISTANCE_SQUARED_BEFORE_PATH_FINDING) {
+            boolean moved = moveWithPaperPathfinder(bukkitEntity, followTarget, FOLLOW_PATHFINDING_SPEED);
+
+            if (Scheduler.isFolia() && !moved) {
+                stopEntityPathfinding(bukkitEntity);
+                bukkitEntity.teleportAsync(followTarget);
+            } else if (!moved) {
+                stopEntityPathfinding(bukkitEntity);
+            }
+            return;
+        }
+
+        stopEntityPathfinding(bukkitEntity);
+    }
+
+    private boolean moveWithPaperPathfinder(Entity bukkitEntity, Location followTarget, double speed) {
+        if (!(bukkitEntity instanceof Mob mob)) {
+            return false;
+        }
+        if (Scheduler.isFolia()) {
+            World world = followTarget.getWorld();
+
+            if (world == null) {
+                return false;
+            }
+            int chunkX = followTarget.getBlockX() >> 4;
+            int chunkZ = followTarget.getBlockZ() >> 4;
+
+            if (!Bukkit.isOwnedByCurrentRegion(world, chunkX, chunkZ)) {
+                return false;
             }
         }
+        try {
+            return mob.getPathfinder().moveTo(followTarget, speed);
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+    }
+
+    private void stopEntityPathfinding(Entity bukkitEntity) {
+        if (bukkitEntity instanceof Mob mob) {
+            try {
+                mob.getPathfinder().stopPathfinding();
+            } catch (RuntimeException ignored) {
+            }
+        }
+        stopNavigation();
     }
 
     @Override

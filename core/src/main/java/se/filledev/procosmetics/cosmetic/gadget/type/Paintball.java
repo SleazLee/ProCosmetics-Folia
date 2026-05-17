@@ -21,7 +21,6 @@ import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Snowball;
@@ -38,10 +37,11 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetBehavior;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.util.MathUtil;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.material.Materials;
 
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Paintball implements GadgetBehavior, Listener {
 
@@ -51,7 +51,7 @@ public class Paintball implements GadgetBehavior, Listener {
     private static final int PAINT_DURATION = 5;
     private static final double PAINT_PARTICLE_CHANCE = 0.6d;
 
-    private final Set<Projectile> balls = new HashSet<>();
+    private final Set<Projectile> balls = ConcurrentHashMap.newKeySet();
 
     @Override
     public void onEquip(CosmeticContext<GadgetType> context) {
@@ -79,10 +79,29 @@ public class Paintball implements GadgetBehavior, Listener {
 
     @Override
     public void onUnequip(CosmeticContext<GadgetType> context) {
-        for (Entity entity : balls) {
-            entity.remove();
-        }
+        Set<Projectile> projectilesToRemove = Set.copyOf(balls);
         balls.clear();
+
+        for (Projectile projectile : projectilesToRemove) {
+            removeProjectileOnOwningRegion(projectile);
+        }
+    }
+
+    /**
+     * Removes a retained paintball from the projectile's owning region.
+     *
+     * <p>Paintballs can be unequipped after they have crossed a Folia region boundary. Dispatching
+     * removal to the projectile scheduler prevents cleanup from touching projectile state from the
+     * player's current region.</p>
+     *
+     * @param projectile the projectile to remove
+     */
+    private void removeProjectileOnOwningRegion(Projectile projectile) {
+        Scheduler.runOwned(projectile, null, () -> {
+            if (projectile.isValid()) {
+                projectile.remove();
+            }
+        });
     }
 
     @Override

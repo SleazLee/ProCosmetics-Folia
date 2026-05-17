@@ -48,6 +48,7 @@ public abstract class CosmeticImpl<T extends CosmeticType<T, B>,
     protected final B behavior;
     protected Player player;
     private boolean equipped;
+    private boolean equipAborted;
 
     public CosmeticImpl(ProCosmeticsPlugin plugin, User user, T cosmeticType, B behavior) {
         this.plugin = plugin;
@@ -105,7 +106,17 @@ public abstract class CosmeticImpl<T extends CosmeticType<T, B>,
         }
         user.setCosmetic(category, this);
 
+        equipAborted = false;
         onEquip();
+
+        if (equipAborted) {
+            HandlerList.unregisterAll(this);
+
+            if (user.getCosmetic(category) == this) {
+                user.getCosmetics().remove(category);
+            }
+            return;
+        }
         behavior.onEquip(this);
 
         if (behavior instanceof Listener behaviorListener) {
@@ -113,10 +124,7 @@ public abstract class CosmeticImpl<T extends CosmeticType<T, B>,
         }
 
         if (!silent) {
-            Scheduler.run(player.getLocation(), () -> user.sendMessage(user.translate(
-                    "cosmetic." + cosmeticType.getCategory().getKey() + ".equip",
-                    Placeholder.unparsed("cosmetic", cosmeticType.getName(user))
-            )));
+            sendEquipMessageOnPlayerRegion();
         }
         equipped = true;
         pluginManager.callEvent(new PlayerEquipCosmeticEvent(plugin, user, player, cosmeticType));
@@ -133,10 +141,37 @@ public abstract class CosmeticImpl<T extends CosmeticType<T, B>,
             return;
         }
         if (Scheduler.isFolia()) {
-            Scheduler.run(player.getLocation(), this::onUpdate);
+            Scheduler.run(player, this::runUpdateOnPlayerRegion);
             return;
         }
         onUpdate();
+    }
+
+    /**
+     * Re-checks cosmetic state after the Folia player scheduler accepts the update.
+     *
+     * <p>The repeating timer can fire just before the player disconnects or unequips the cosmetic.
+     * This guard keeps the actual cosmetic update on the player's owning region and avoids running
+     * behavior for a cosmetic that became inactive while the region task was queued.</p>
+     */
+    private void runUpdateOnPlayerRegion() {
+        if (player == null || !player.isOnline() || !equipped) {
+            return;
+        }
+        onUpdate();
+    }
+
+    /**
+     * Sends the equip confirmation from the player's owning region.
+     *
+     * <p>Using the player scheduler avoids reading {@code player.getLocation()} from the global
+     * timer path on Folia, which can happen while the player is crossing region boundaries.</p>
+     */
+    private void sendEquipMessageOnPlayerRegion() {
+        Scheduler.run(player, () -> user.sendMessage(user.translate(
+                "cosmetic." + cosmeticType.getCategory().getKey() + ".equip",
+                Placeholder.unparsed("cosmetic", cosmeticType.getName(user))
+        )));
     }
 
     @Override
@@ -169,6 +204,20 @@ public abstract class CosmeticImpl<T extends CosmeticType<T, B>,
 
     protected boolean canEquip() {
         return true;
+    }
+
+    /**
+     * Stops the current equip flow after {@link #onEquip()} discovers that the
+     * cosmetic could not actually become active.
+     *
+     * <p>This is used by entity-backed cosmetics when a spawn is still blocked by
+     * another plugin after all normal pre-equip checks pass. Without this hook, the
+     * base equip flow would continue to send the success message, save the cosmetic
+     * as equipped, and fire the public equip event even though no visible cosmetic
+     * exists.</p>
+     */
+    protected void abortEquip() {
+        equipAborted = true;
     }
 
     protected abstract void onEquip();

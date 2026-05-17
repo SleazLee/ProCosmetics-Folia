@@ -41,9 +41,10 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.util.MathUtil;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TNT implements GadgetBehavior, Listener {
 
@@ -51,8 +52,8 @@ public class TNT implements GadgetBehavior, Listener {
 
     private static final int FUSE_TICKS = 80;
 
-    private final Set<Entity> entities = new HashSet<>();
-    private final Set<FallingBlock> fallingBlocks = new HashSet<>();
+    private final Set<Entity> entities = ConcurrentHashMap.newKeySet();
+    private final Set<FallingBlock> fallingBlocks = ConcurrentHashMap.newKeySet();
 
     @Override
     public void onEquip(CosmeticContext<GadgetType> context) {
@@ -79,15 +80,34 @@ public class TNT implements GadgetBehavior, Listener {
 
     @Override
     public void onUnequip(CosmeticContext<GadgetType> context) {
-        for (Entity entity : entities) {
-            entity.remove();
-        }
+        Set<Entity> spawnedEntities = Set.copyOf(entities);
         entities.clear();
 
-        for (FallingBlock fallingBlock : fallingBlocks) {
-            fallingBlock.remove();
+        for (Entity entity : spawnedEntities) {
+            removeEntityOnOwningRegion(entity);
         }
+        Set<FallingBlock> spawnedBlocks = Set.copyOf(fallingBlocks);
         fallingBlocks.clear();
+
+        for (FallingBlock fallingBlock : spawnedBlocks) {
+            removeEntityOnOwningRegion(fallingBlock);
+        }
+    }
+
+    /**
+     * Removes TNT or falling-block leftovers from the entity's owning region.
+     *
+     * <p>A thrown TNT can travel into another Folia region before the gadget is unequipped. Cleanup
+     * must therefore follow each retained entity instead of running from the owner's current region.</p>
+     *
+     * @param entity the retained entity to remove
+     */
+    private void removeEntityOnOwningRegion(Entity entity) {
+        Scheduler.runOwned(entity, null, () -> {
+            if (entity.isValid()) {
+                entity.remove();
+            }
+        });
     }
 
     @Override
@@ -109,7 +129,7 @@ public class TNT implements GadgetBehavior, Listener {
     public void onExplode(EntityExplodeEvent event) {
         Entity entity = event.getEntity();
 
-        if (entities.contains(entity)) {
+        if (entities.remove(entity)) {
             event.setCancelled(true);
 
             Location location = entity.getLocation();
@@ -117,13 +137,9 @@ public class TNT implements GadgetBehavior, Listener {
             location.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, location, 0);
             location.getWorld().playSound(location, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 0.0f);
 
-            for (Player player : MathUtil.getClosestPlayersFromLocation(location, 4.0d)) {
-                MathUtil.pushEntity(player, location, MathUtil.randomRange(1.0d, 3.0d), MathUtil.randomRange(1.0d, 2.0d));
-
-                User otherUser = PLUGIN.getUserManager().getConnected(player);
-
-                if (otherUser != null) {
-                    otherUser.setFallDamageProtection(8);
+            for (Entity nearbyEntity : entity.getNearbyEntities(4.0d, 4.0d, 4.0d)) {
+                if (nearbyEntity instanceof Player player) {
+                    pushPlayerFromOwnRegion(player, location.clone());
                 }
             }
             int fallingBlockAmount = 0;
@@ -153,6 +169,31 @@ public class TNT implements GadgetBehavior, Listener {
                 }
             }
         }
+    }
+
+    /**
+     * Applies TNT knockback and fall protection from the target player's owning region.
+     *
+     * <p>The explosion event belongs to the TNT region, but velocity and user fall-protection state
+     * are tied to the affected player. Dispatching per player prevents cross-region entity mutation
+     * when a player is near the explosion edge.</p>
+     *
+     * @param player the player affected by the TNT blast
+     * @param source the explosion source location
+     */
+    private void pushPlayerFromOwnRegion(Player player, Location source) {
+        double horizontal = MathUtil.randomRange(1.0d, 3.0d);
+        double vertical = MathUtil.randomRange(1.0d, 2.0d);
+
+        Scheduler.run(player, () -> {
+            MathUtil.pushEntity(player, source, horizontal, vertical);
+
+            User otherUser = PLUGIN.getUserManager().getConnected(player);
+
+            if (otherUser != null) {
+                otherUser.setFallDamageProtection(8);
+            }
+        });
     }
 
     @EventHandler

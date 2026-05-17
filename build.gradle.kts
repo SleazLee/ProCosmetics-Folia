@@ -118,6 +118,7 @@ subprojects {
         maven("https://maven.enginehub.org/repo/")
         maven("https://ci.ender.zone/plugin/repository/everything/")
         maven("https://repo.rosewooddev.io/repository/public/")
+        maven("https://repo.grim.ac/snapshots/")
     }
     val javaVersion = findProperty("javaVersion")?.toString()?.toIntOrNull() ?: 21
 

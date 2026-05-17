@@ -37,7 +37,8 @@ import se.filledev.procosmetics.api.cosmetic.CosmeticContext;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetBehavior;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.user.User;
-import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.CosmeticEntitySpawner;
+import se.filledev.procosmetics.util.Scheduler;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -67,14 +68,16 @@ public class Cowboy implements GadgetBehavior, Listener {
             return InteractionResult.fail();
         }
         Location location = clickedPlayer.getLocation().add(0.0d, 2.0d, 0.0d);
-        armorStand = location.getWorld().spawn(clickedPlayer.getLocation(), ArmorStand.class, entity -> {
+        armorStand = CosmeticEntitySpawner.spawnLiving(clickedPlayer.getLocation(), ArmorStand.class, entity -> {
             entity.setSmall(true);
             entity.setVisible(false);
             entity.setGravity(false);
             entity.setCollidable(false);
-
-            MetadataUtil.setCustomEntity(entity);
         });
+
+        if (armorStand == null) {
+            return InteractionResult.fail();
+        }
         clickedPlayer.addPassenger(armorStand);
         armorStand.addPassenger(player);
         player.playSound(location, Sound.ENTITY_HORSE_ARMOR, 0.5f, 1.2f);
@@ -163,8 +166,23 @@ public class Cowboy implements GadgetBehavior, Listener {
         }
     }
 
+    /**
+     * Removes the temporary rider seat from the seat entity's owning region.
+     *
+     * <p>The carried player and the owner can separate across Folia regions before dismount or
+     * unequip cleanup runs. Dispatching removal through the armor stand scheduler prevents the seat
+     * from being removed from whichever player region happened to trigger cleanup.</p>
+     */
     private void despawnArmorStand() {
-        armorStand.remove();
+        Entity currentArmorStand = armorStand;
         armorStand = null;
+
+        if (currentArmorStand != null) {
+            Scheduler.runOwned(currentArmorStand, null, () -> {
+                if (currentArmorStand.isValid()) {
+                    currentArmorStand.remove();
+                }
+            });
+        }
     }
 }

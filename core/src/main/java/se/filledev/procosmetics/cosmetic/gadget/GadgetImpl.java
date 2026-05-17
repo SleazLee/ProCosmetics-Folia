@@ -189,14 +189,7 @@ public class GadgetImpl extends CosmeticImpl<GadgetType, GadgetBehavior> impleme
         if (applyCooldown && cosmeticType.getCooldown() > 0.0d) {
             user.setCooldown(cosmeticType, cosmeticType.getCooldown());
 
-            Scheduler.runLater(player.getLocation(), () -> {
-                if (player.isOnline() && isEquipped()) {
-                    user.sendActionBar(user.translate(
-                            "cosmetic.gadgets.cooldown.ready",
-                            Placeholder.unparsed("gadget", cosmeticType.getName(user))
-                    ));
-                }
-            }, cosmeticType.getCooldownTicks() + 1L);
+            scheduleCooldownReadyMessage();
 
             // We cannot set cooldown for GrapplingHook (fishing rod) because it won't throw the hook then (ugly workaround right now)
             if (!(behavior instanceof GrapplingHook)) {
@@ -205,14 +198,45 @@ public class GadgetImpl extends CosmeticImpl<GadgetType, GadgetBehavior> impleme
         }
     }
 
+    /**
+     * Sends the delayed cooldown-ready action bar from the player's owning region.
+     *
+     * <p>Cooldowns can outlive the region where a gadget was activated. Scheduling the delayed
+     * message on the player entity keeps the final online/equipped checks and action-bar send valid
+     * after the player has moved to another Folia region.</p>
+     */
+    private void scheduleCooldownReadyMessage() {
+        Scheduler.runLater(player, () -> {
+            if (player.isOnline() && isEquipped()) {
+                user.sendActionBar(user.translate(
+                        "cosmetic.gadgets.cooldown.ready",
+                        Placeholder.unparsed("gadget", cosmeticType.getName(user))
+                ));
+            }
+        }, cosmeticType.getCooldownTicks() + 1L);
+    }
+
     private GadgetBehavior.InteractionResult onUse(Action action, @Nullable Block clickedBlock, @Nullable Vector clickedPosition) {
         GadgetBehavior.InteractionResult result = behavior.onInteract(this, action, clickedBlock, clickedPosition);
 
         if (result.shouldConsumeAmmo() || result.shouldApplyCooldown()) {
+            exemptFromGrimForSuccessfulUse();
             consume(result.shouldConsumeAmmo(), result.shouldApplyCooldown());
             setGadgetItemInInventory();
         }
         return result;
+    }
+
+    /**
+     * Marks the player exempt from Grim only after the gadget reports a real use.
+     *
+     * <p>This keeps the Grim window tied to an active gadget effect instead of
+     * the player simply holding or attempting to use the gadget. The configured
+     * gadget duration is passed through so long-running effects, such as rideable
+     * or movement gadgets, remain covered for their active lifetime.</p>
+     */
+    private void exemptFromGrimForSuccessfulUse() {
+        plugin.getGrimExemptionManager().exemptGadgetUse(player, cosmeticType.getDurationTicks());
     }
 
     @EventHandler

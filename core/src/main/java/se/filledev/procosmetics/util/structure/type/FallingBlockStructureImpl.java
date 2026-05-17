@@ -52,17 +52,31 @@ public class FallingBlockStructureImpl extends StructureImpl<NMSEntity> implemen
             rotate(blockData, location.getYaw());
 
             NMSEntity nmsFallingBlock = PLUGIN.getNMSManager().createFallingBlock(location.getWorld(), blockData, tracker);
+            Location blockLocation = location.clone().add(vector);
+            positionFallingBlockBeforeBukkitSetup(nmsFallingBlock, blockLocation);
+
             if (nmsFallingBlock.getBukkitEntity() instanceof FallingBlock fallingBlock) {
                 fallingBlock.setGravity(false);
             }
-            location.add(vector);
-            nmsFallingBlock.setPositionRotation(location);
-            location.subtract(vector);
-
             placedEntries.add(nmsFallingBlock);
         }
         tracker.startTracking();
         return angle;
+    }
+
+    /**
+     * Positions virtual falling blocks before touching their Bukkit wrapper state.
+     *
+     * <p>Folia validates wrapper calls like {@link FallingBlock#setGravity(boolean)}
+     * against the region that owns the entity's coordinates. Newly-created helpers
+     * start at the world's default coordinates, so the structure must move each
+     * helper into its final region before disabling gravity.</p>
+     *
+     * @param entity the falling block helper entity being configured
+     * @param location the final structure position for the falling block helper
+     */
+    private void positionFallingBlockBeforeBukkitSetup(NMSEntity entity, Location location) {
+        entity.setPositionRotation(location);
     }
 
     @Override

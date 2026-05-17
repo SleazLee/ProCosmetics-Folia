@@ -62,7 +62,8 @@ public class Wither extends FlyableMorph implements Listener {
             MetadataUtil.setCustomEntity(skull);
             player.getWorld().playSound(player, Sound.ENTITY_WITHER_SHOOT, 1.0f, 1.0f);
 
-            Scheduler.runLater(player.getLocation(), this::despawnSkull, 60L);
+            WitherSkull launchedSkull = skull;
+            Scheduler.runLaterOwned(launchedSkull, launchedSkull.getLocation(), () -> despawnSkull(launchedSkull), 60L);
             return InteractionResult.success();
         }
         return InteractionResult.noAction();
@@ -89,24 +90,70 @@ public class Wither extends FlyableMorph implements Listener {
             location.getWorld().spawnParticle(Particle.EXPLOSION, location, 1, 0.1d, 0.1d, 0.1d, 0.1d);
 
             for (Player hitPlayer : MathUtil.getClosestPlayersFromLocation(location, 2.5d)) {
-                User otherUser = PLUGIN.getUserManager().getConnected(hitPlayer);
-
-                if (otherUser != null) {
-                    otherUser.setFallDamageProtection(6);
-                }
-                hitPlayer.setVelocity(new Vector(MathUtil.randomRange(-0.5d, 0.5d),
-                        MathUtil.randomRange(0.8d, 1.5d),
-                        MathUtil.randomRange(-0.5d, 0.5d)
-                ));
+                pushPlayerFromOwnRegion(hitPlayer);
             }
             despawnSkull();
         }
     }
 
+    /**
+     * Applies Wither morph explosion knockback from the target player's owning region.
+     *
+     * <p>The skull explosion event belongs to the projectile region, but velocity and fall-protection
+     * state belong to each affected player. Dispatching per player keeps the ability safe when the
+     * blast overlaps a Folia region boundary.</p>
+     *
+     * @param hitPlayer the player affected by the skull explosion
+     */
+    private void pushPlayerFromOwnRegion(Player hitPlayer) {
+        Vector velocity = new Vector(MathUtil.randomRange(-0.5d, 0.5d),
+                MathUtil.randomRange(0.8d, 1.5d),
+                MathUtil.randomRange(-0.5d, 0.5d)
+        );
+
+        Scheduler.run(hitPlayer, () -> {
+            User otherUser = PLUGIN.getUserManager().getConnected(hitPlayer);
+
+            if (otherUser != null) {
+                otherUser.setFallDamageProtection(6);
+            }
+            hitPlayer.setVelocity(velocity);
+        });
+    }
+
+    /**
+     * Removes the active skull from the skull entity's owning region.
+     *
+     * <p>Unequip and delayed cleanup can happen after the projectile has moved away from the player
+     * who fired it. The public cleanup method captures the skull and lets its entity scheduler own
+     * the actual remove call.</p>
+     */
     private void despawnSkull() {
         if (skull != null) {
-            skull.remove();
+            WitherSkull currentSkull = skull;
             skull = null;
+            Scheduler.runOwned(currentSkull, null, () -> {
+                if (currentSkull.isValid()) {
+                    currentSkull.remove();
+                }
+            });
+        }
+    }
+
+    /**
+     * Removes the skull when a delayed cleanup task fires on that skull's region.
+     *
+     * <p>The identity check prevents an old delayed task from removing a newer skull fired after the
+     * ability was used again.</p>
+     *
+     * @param currentSkull the skull captured when the delayed task was scheduled
+     */
+    private void despawnSkull(WitherSkull currentSkull) {
+        if (skull == currentSkull) {
+            skull = null;
+            if (currentSkull.isValid()) {
+                currentSkull.remove();
+            }
         }
     }
 }

@@ -35,6 +35,7 @@ import se.filledev.procosmetics.api.cosmetic.pet.Pet;
 import se.filledev.procosmetics.api.cosmetic.registry.CosmeticCategory;
 import se.filledev.procosmetics.api.cosmetic.status.Status;
 import se.filledev.procosmetics.api.user.User;
+import se.filledev.procosmetics.util.Scheduler;
 
 public class CosmeticListener implements Listener {
 
@@ -77,6 +78,7 @@ public class CosmeticListener implements Listener {
             return;
         }
         to = to.clone(); // Keep this for safety reasons as event.getTo() is not a copy of the loc
+        final Location targetLocation = to;
 
         Player player = event.getPlayer();
         User user = plugin.getUserManager().getConnected(player);
@@ -105,7 +107,7 @@ public class CosmeticListener implements Listener {
         }
 
         if (mount != null && mount.isEquipped()) {
-            mount.spawn(to);
+            Scheduler.run(targetLocation, () -> mount.spawn(targetLocation.clone()));
         }
 
         if (morph != null && morph.isEquipped() && user.hasSelfViewMorph()) {
@@ -113,7 +115,7 @@ public class CosmeticListener implements Listener {
         }
 
         if (pet != null && pet.isEquipped()) {
-            pet.spawn(to);
+            Scheduler.run(targetLocation, () -> pet.spawn(targetLocation.clone()));
         }
 
         if (status != null && status.isEquipped() && user.hasSelfViewStatus()) {

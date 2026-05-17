@@ -46,15 +46,33 @@ public class EntityInUse extends PacketHandler {
             for (MerryGoRound.CoasterHorse coasterHorse : MerryGoRound.COASTER_HORSES) {
                 if (coasterHorse.horse().getId() == id) {
                     Entity entity = coasterHorse.armorStand().getBukkitEntity();
-
-                    if (entity.getPassengers().isEmpty()) {
-                        Scheduler.run(entity.getLocation(), () -> entity.addPassenger(player));
-                    }
+                    scheduleCarouselSeatMount(entity, player);
                     return;
                 }
             }
         } catch (IllegalAccessException e) {
             plugin.getLogger().log(Level.WARNING, "Failed to get the entity id in EntityInUse listener!", e);
         }
+    }
+
+    /**
+     * Adds a player to a carousel seat from the seat entity's owning region.
+     *
+     * <p>This packet listener can run outside the seat's Folia region. Passenger reads and
+     * mutations belong to the armor stand seat, so the empty-seat check and add-passenger call are
+     * both dispatched through the seat scheduler.</p>
+     *
+     * @param entity the carousel armor stand seat
+     * @param player the player attempting to ride the seat
+     */
+    private void scheduleCarouselSeatMount(Entity entity, Player player) {
+        if (entity == null) {
+            return;
+        }
+        Scheduler.runOwned(entity, null, () -> {
+            if (entity.getPassengers().isEmpty()) {
+                entity.addPassenger(player);
+            }
+        });
     }
 }

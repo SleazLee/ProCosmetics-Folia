@@ -26,6 +26,7 @@ import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.util.Scheduler;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
@@ -39,19 +40,15 @@ public class EntityTrackerImpl implements EntityTracker, Runnable {
     private long updateInterval = DEFAULT_UPDATE_INTERVAL;
     private long startDelay = DEFAULT_START_DELAY;
 
-    private final Set<NMSEntity> entities = new LinkedHashSet<>();
-    private final Set<Player> viewers = new HashSet<>();
-    private final Set<UUID> antiViewers = new HashSet<>();
+    private final Set<NMSEntity> entities = ConcurrentHashMap.newKeySet();
+    private final Set<Player> viewers = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> antiViewers = ConcurrentHashMap.newKeySet();
 
     private volatile Player owner;
     private volatile UUID ownerUUID;
 
     private volatile Predicate<Player> visibilityPredicate;
     private volatile BiPredicate<Player, Player> ownerVisibilityPredicate;
-
-    private final Location reusableLocation = new Location(null, 0.0d, 0.0d, 0.0d);
-    private final Set<Player> playersToAdd = new HashSet<>();
-    private final Set<Player> playersToRemove = new HashSet<>();
 
     private volatile Scheduler.Task trackingTask;
     private volatile boolean tracking;
@@ -112,7 +109,7 @@ public class EntityTrackerImpl implements EntityTracker, Runnable {
             }
 
             // Despawn all entities for all viewers
-            removeViewers(viewers);
+            removeViewers(Set.copyOf(viewers));
         }
     }
 
@@ -151,7 +148,7 @@ public class EntityTrackerImpl implements EntityTracker, Runnable {
         }
         viewers.addAll(players);
 
-        for (NMSEntity entity : entities) {
+        for (NMSEntity entity : Set.copyOf(entities)) {
             entity.spawn(players);
         }
     }
@@ -167,10 +164,15 @@ public class EntityTrackerImpl implements EntityTracker, Runnable {
             return;
         }
         // Despawn all entities for these viewers in batch
-        for (NMSEntity entity : entities) {
-            entity.despawn(players);
+        Collection<Player> playersToRemove = Set.copyOf(players);
+
+        if (playersToRemove.isEmpty()) {
+            return;
         }
-        viewers.removeAll(players);
+        for (NMSEntity entity : Set.copyOf(entities)) {
+            entity.despawn(playersToRemove);
+        }
+        viewers.removeAll(playersToRemove);
     }
 
     @Override
@@ -328,9 +330,6 @@ public class EntityTrackerImpl implements EntityTracker, Runnable {
             }
             return;
         }
-        playersToAdd.clear();
-        playersToRemove.clear();
-
         Location trackingLocation = getTrackingLocation();
 
         if (trackingLocation == null) {
@@ -339,18 +338,110 @@ public class EntityTrackerImpl implements EntityTracker, Runnable {
             }
             return;
         }
+        if (Scheduler.isFolia()) {
+            tickFolia(trackingLocation.clone(), shouldReschedule);
+            return;
+        }
+        tickSynchronous(trackingLocation, shouldReschedule);
+    }
+
+    /**
+     * Evaluates packet-entity visibility on each player's owning region.
+     *
+     * <p>The tracker itself is anchored to the cosmetic entity location, but Folia requires player
+     * location reads to happen on the player's own scheduler. This method splits the work: player
+     * visibility is calculated on the player region, then the packet spawn/despawn decision is
+     * applied back on the cosmetic entity's tracking region.</p>
+     *
+     * @param trackingLocation the region location of the tracked virtual entities
+     * @param shouldReschedule whether this tick should queue the next tracker update
+     */
+    private void tickFolia(Location trackingLocation, boolean shouldReschedule) {
         // Remove offline viewers
         viewers.removeIf(player -> !player.isOnline());
 
         double rangeSquared = trackingRange * trackingRange;
 
-        // Check all online players
+        for (Player player : PLUGIN.getServer().getOnlinePlayers()) {
+            Scheduler.run(player, () -> evaluatePlayerVisibilityOnPlayerRegion(player, trackingLocation, rangeSquared));
+        }
+
+        if (shouldReschedule) {
+            scheduleNextRun(updateInterval);
+        }
+    }
+
+    /**
+     * Reads one player's visibility inputs from that player's owning region.
+     *
+     * <p>After the read-only checks are complete, the viewer set is changed on the tracked
+     * cosmetic's region so virtual entity packet generation still happens beside the virtual
+     * entity state.</p>
+     *
+     * @param player the player being evaluated
+     * @param trackingLocation the virtual entity location used for range checks
+     * @param rangeSquared the squared visibility range
+     */
+    private void evaluatePlayerVisibilityOnPlayerRegion(Player player, Location trackingLocation, double rangeSquared) {
+        if (!tracking) {
+            return;
+        }
+        if (!player.isOnline() || !player.isValid()) {
+            Scheduler.run(trackingLocation, () -> viewers.remove(player));
+            return;
+        }
+        Location playerLocation = player.getLocation();
+        boolean shouldView = shouldPlayerSeeEntities(player, playerLocation, trackingLocation, rangeSquared);
+
+        Scheduler.run(trackingLocation, () -> applyViewerDecision(player, shouldView));
+    }
+
+    /**
+     * Applies a player visibility decision from the tracked cosmetic's region.
+     *
+     * <p>Spawning virtual entities may read Bukkit wrapper state for equipment and display data, so
+     * the final add/remove step stays anchored to the cosmetic location instead of the player region
+     * that produced the decision.</p>
+     *
+     * @param player the player whose viewer state should change
+     * @param shouldView whether the player should currently see the tracked entities
+     */
+    private void applyViewerDecision(Player player, boolean shouldView) {
+        if (!tracking) {
+            return;
+        }
+        boolean currentlyViewing = isViewer(player);
+
+        if (shouldView && !currentlyViewing) {
+            addViewer(player);
+        } else if (!shouldView && currentlyViewing) {
+            removeViewer(player);
+        }
+    }
+
+    /**
+     * Performs the legacy single-thread visibility scan used by Bukkit and Paper.
+     *
+     * <p>Non-Folia servers still have one owning server thread, so the original nearby-player scan
+     * remains cheaper and keeps packet updates grouped in one tick.</p>
+     *
+     * @param trackingLocation the virtual entity location used for range checks
+     * @param shouldReschedule whether this tick should queue the next tracker update
+     */
+    private void tickSynchronous(Location trackingLocation, boolean shouldReschedule) {
+        Set<Player> playersToAdd = new HashSet<>();
+        Set<Player> playersToRemove = new HashSet<>();
+
+        viewers.removeIf(player -> !player.isOnline());
+
+        double rangeSquared = trackingRange * trackingRange;
+
         for (Player player : PLUGIN.getServer().getOnlinePlayers()) {
             if (!player.isValid()) {
                 continue;
             }
-            player.getLocation(reusableLocation);
-            boolean shouldView = shouldPlayerSeeEntities(player, reusableLocation, trackingLocation, rangeSquared);
+            Location playerLocation = player.getLocation();
+            boolean shouldView = shouldPlayerSeeEntities(player, playerLocation, trackingLocation, rangeSquared);
             boolean currentlyViewing = isViewer(player);
 
             if (shouldView && !currentlyViewing) {

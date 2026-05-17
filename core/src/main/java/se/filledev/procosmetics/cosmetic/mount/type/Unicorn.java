@@ -69,14 +69,32 @@ public class Unicorn extends BlockTrailBehavior {
             horse.getInventory().setSaddle(new ItemStack(Material.SADDLE));
         }
         horn = context.getPlugin().getNMSManager().createEntity(entity.getWorld(), EntityType.ARMOR_STAND);
+        if (horn == null) {
+            return;
+        }
+        positionHornBeforeArmorStandSetup(horn, entity.getLocation());
         if (horn.getBukkitEntity() instanceof ArmorStand armorStand) {
             armorStand.setInvisible(true);
             armorStand.setArms(false);
             armorStand.setMarker(false);
         }
         horn.setHelmet(BLAZE_ROD_ITEM);
-        horn.setPositionRotation(entity.getLocation());
         horn.getTracker().startTracking();
+    }
+
+    /**
+     * Moves the virtual horn onto the mount's region before touching Bukkit armor-stand state.
+     *
+     * <p>Virtual NMS helper entities start at {@code 0,0,0}. On Folia, calling
+     * Bukkit setters such as {@link ArmorStand#setInvisible(boolean)} before the
+     * helper is positioned can fail because the current mount thread may not own
+     * the helper's initial region.</p>
+     *
+     * @param horn the virtual horn entity
+     * @param location the current mount location
+     */
+    private void positionHornBeforeArmorStandSetup(NMSEntity horn, Location location) {
+        horn.setPositionRotation(location);
     }
 
     @Override

@@ -77,8 +77,9 @@ public class EtherealPearl implements GadgetBehavior, Listener {
 
     @Override
     public void onUpdate(CosmeticContext<GadgetType> context) {
-        if (enderPearl != null && enderPearl.isValid()) {
-            location.getWorld().spawnParticle(Particle.CLOUD, enderPearl.getLocation(location), 1, 0, 0, 0, 0.0d);
+        if (enderPearl != null) {
+            EnderPearl pearl = enderPearl;
+            Scheduler.runOwned(pearl, location, () -> updatePearlTrail(pearl));
         }
     }
 
@@ -133,11 +134,39 @@ public class EtherealPearl implements GadgetBehavior, Listener {
         }
     }
 
+    /**
+     * Removes the active pearl from the projectile's owning region.
+     *
+     * <p>Unequip and dismount events are not guaranteed to run on the same Folia region as the
+     * moving pearl, so removal is dispatched through the pearl scheduler when one exists.</p>
+     */
     private void despawn() {
         if (enderPearl != null) {
-            enderPearl.remove();
+            EnderPearl pearl = enderPearl;
             enderPearl = null;
+            Scheduler.runOwned(pearl, location, () -> {
+                if (pearl.isValid()) {
+                    pearl.remove();
+                }
+            });
         }
+    }
+
+    /**
+     * Spawns pearl trail particles from the pearl entity's owning region.
+     *
+     * <p>The owner can be carried across Folia regions by the pearl. Reading the projectile
+     * location from the normal player-following gadget update can become invalid once that happens,
+     * so the trail is emitted by the projectile scheduler itself.</p>
+     *
+     * @param pearl the currently active pearl captured before the scheduler hop
+     */
+    private void updatePearlTrail(EnderPearl pearl) {
+        if (enderPearl != pearl || !pearl.isValid()) {
+            return;
+        }
+        Location particleLocation = pearl.getLocation();
+        particleLocation.getWorld().spawnParticle(Particle.CLOUD, particleLocation, 1, 0, 0, 0, 0.0d);
     }
 
     private void lunchFirework(Location location) {

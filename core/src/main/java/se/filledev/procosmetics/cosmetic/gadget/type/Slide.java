@@ -38,9 +38,9 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetBehavior;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.api.util.structure.type.BlockStructure;
+import se.filledev.procosmetics.util.CosmeticEntitySpawner;
 import se.filledev.procosmetics.util.FastMathUtil;
 import se.filledev.procosmetics.util.MathUtil;
-import se.filledev.procosmetics.util.MetadataUtil;
 import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.structure.type.BlockStructureImpl;
 
@@ -82,43 +82,86 @@ public class Slide implements GadgetBehavior, Listener {
     @Override
     public void onUpdate(CosmeticContext<GadgetType> context) {
         if (seat != null) {
-            if (seat.getBukkitEntity().getPassengers().isEmpty()) {
-                seat.getBukkitEntity().remove();
-                seat = null;
-                return;
-            }
-            double movementAngle = FastMathUtil.toRadians(ticks) * 4;
-            double forward = -Math.abs(Math.sin(movementAngle)) * 4.5d + 6.0;
-            double height = -Math.abs(Math.cos(movementAngle)) * 4.2d + 3.0d;
-
-            vector.setX(0.0d).setY(height).setZ(forward);
-            seat.setPositionRotation(center.clone().add(MathUtil.rotateAroundAxisY(vector, angle)));
-
-            ticks++;
-
-            if (ticks == 28) {
-                Player player = context.getPlayer();
-                player.getWorld().playSound(player, Sound.ENTITY_WITHER_SHOOT, 0.5f, 0.5f);
-            }
-
-            if (ticks == 44) {
-                Entity passenger = seat.getBukkitEntity().getPassenger();
-                seat.getBukkitEntity().remove();
-
-                Vector force = center.getDirection().multiply(0.4d);
-                force.setY(force.getY() + 0.4d);
-                passenger.setVelocity(passenger.getVelocity().add(force));
-                seat = null;
-            }
+            NMSEntity currentSeat = seat;
+            Scheduler.runOwned(currentSeat, () -> updateSeat(context, currentSeat));
         }
     }
 
     @Override
     public void onUnequip(CosmeticContext<GadgetType> context) {
+        if (Scheduler.isFolia() && center != null) {
+            Scheduler.run(center, this::cleanupSlide);
+            return;
+        }
+        cleanupSlide();
+    }
+
+    /**
+     * Updates the slide seat from the seat entity's owning region.
+     *
+     * <p>The gadget update follows the owner, but the armor stand seat can carry another player
+     * and move through a different Folia region. Passenger checks, seat movement, and removal are
+     * therefore dispatched through the seat's backing entity.</p>
+     *
+     * @param context the active gadget context
+     * @param currentSeat the seat being updated on its owning scheduler
+     */
+    private void updateSeat(CosmeticContext<GadgetType> context, NMSEntity currentSeat) {
+        if (seat != currentSeat) {
+            return;
+        }
+        Entity seatEntity = currentSeat.getBukkitEntity();
+
+        if (seatEntity.getPassengers().isEmpty()) {
+            seatEntity.remove();
+            seat = null;
+            return;
+        }
+        double movementAngle = FastMathUtil.toRadians(ticks) * 4;
+        double forward = -Math.abs(Math.sin(movementAngle)) * 4.5d + 6.0;
+        double height = -Math.abs(Math.cos(movementAngle)) * 4.2d + 3.0d;
+
+        vector.setX(0.0d).setY(height).setZ(forward);
+        currentSeat.setPositionRotation(center.clone().add(MathUtil.rotateAroundAxisY(vector, angle)));
+
+        ticks++;
+
+        if (ticks == 28) {
+            Player player = context.getPlayer();
+            Scheduler.run(player, () -> player.getWorld().playSound(player, Sound.ENTITY_WITHER_SHOOT, 0.5f, 0.5f));
+        }
+
+        if (ticks == 44) {
+            Entity passenger = seatEntity.getPassenger();
+            seatEntity.remove();
+            seat = null;
+
+            if (passenger != null) {
+                Vector force = center.getDirection().multiply(0.4d);
+                force.setY(force.getY() + 0.4d);
+                Scheduler.run(passenger, () -> passenger.setVelocity(passenger.getVelocity().add(force)));
+            }
+        }
+    }
+
+    /**
+     * Removes the slide structure from its anchored region and the seat from its entity region.
+     *
+     * <p>A player can unequip or leave while standing in another Folia region. Block cleanup
+     * belongs to the original slide location, while the seat belongs to its own entity scheduler.</p>
+     */
+    private void cleanupSlide() {
         structure.remove();
 
         if (seat != null) {
-            seat.getBukkitEntity().remove();
+            NMSEntity currentSeat = seat;
+            Scheduler.runOwned(currentSeat, () -> {
+                Entity seatEntity = currentSeat.getBukkitEntity();
+
+                if (seatEntity != null) {
+                    seatEntity.remove();
+                }
+            });
             seat = null;
         }
         plate = null;
@@ -149,17 +192,19 @@ public class Slide implements GadgetBehavior, Listener {
                 Player player = event.getPlayer();
 
                 if (seat == null && !player.isSneaking()) {
-                    ArmorStand seatEntity = center.getWorld().spawn(
+                    ArmorStand seatEntity = CosmeticEntitySpawner.spawnLiving(
                             center.clone().add(0.0d, 4.0d, 0.0d), ArmorStand.class, entity -> {
                                 entity.setBasePlate(false);
                                 entity.setVisible(false);
                                 entity.setGravity(false);
 
-                                MetadataUtil.setCustomEntity(entity);
-
                                 seat = PLUGIN.getNMSManager().entityToNMSEntity(entity);
                                 seat.setNoClip(true);
                             });
+                    if (seatEntity == null) {
+                        event.setCancelled(true);
+                        return;
+                    }
                     seatEntity.addPassenger(player);
                     ticks = 22;
                 }

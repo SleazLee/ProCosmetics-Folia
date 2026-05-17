@@ -47,6 +47,7 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.nms.EntityTracker;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.nms.EntityTrackerImpl;
+import se.filledev.procosmetics.util.Scheduler;
 
 import java.util.*;
 
@@ -184,7 +185,7 @@ public class ConnectFour implements GadgetBehavior, Listener {
 
         if (player.equals(getCurrentPlayer()) &&
                 (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK)) {
-            dropPiece();
+            dropPieceOnBoardRegion();
         }
     }
 
@@ -194,8 +195,23 @@ public class ConnectFour implements GadgetBehavior, Listener {
             return;
         }
         if (event.getDamager() instanceof Player damager && damager.equals(getCurrentPlayer())) {
-            dropPiece();
+            dropPieceOnBoardRegion();
         }
+    }
+
+    /**
+     * Routes click input back to the board's region before dropping a display piece.
+     *
+     * <p>Input events are owned by the clicking player's region. The piece being dropped is a
+     * board display, so the actual state change has to run where the board is anchored when a
+     * player crosses a Folia region boundary.</p>
+     */
+    private void dropPieceOnBoardRegion() {
+        if (Scheduler.isFolia() && boardOrigin != null) {
+            Scheduler.run(boardOrigin, this::dropPiece);
+            return;
+        }
+        dropPiece();
     }
 
     // I dislike this
@@ -269,15 +285,34 @@ public class ConnectFour implements GadgetBehavior, Listener {
     }
 
     private void showTitle(Player player, Color color) {
-        PLUGIN.getUserManager().getConnected(player).showTitle(
+        runPlayerEffect(player, () -> PLUGIN.getUserManager().getConnected(player).showTitle(
                 Component.text(" "),
                 Component.text("■", TextColor.color(color.asRGB())),
                 TITLE_TIMES
-        );
+        ));
+    }
+
+    /**
+     * Runs player-targeted UI or sound effects on that player's region when Folia is active.
+     *
+     * <p>The board's display logic can execute on the board region, but title and sound
+     * delivery belongs to the individual player. This keeps Folia player effects
+     * region-correct while preserving immediate behavior on normal Paper.</p>
+     *
+     * @param player the player receiving the effect
+     * @param runnable the player-owned effect to run
+     */
+    private void runPlayerEffect(Player player, Runnable runnable) {
+        if (Scheduler.isFolia()) {
+            Scheduler.run(player, runnable);
+            return;
+        }
+        runnable.run();
     }
 
     private NMSEntity createBlockDisplay(Location location, Material material, Color glowColor, boolean glowing) {
         NMSEntity entity = PLUGIN.getNMSManager().createEntity(location.getWorld(), EntityType.BLOCK_DISPLAY, entityTracker);
+        positionDisplayBeforeBukkitSetup(entity, location);
 
         if (entity.getBukkitEntity() instanceof BlockDisplay blockDisplay) {
             blockDisplay.setBlock(material.createBlockData());
@@ -296,9 +331,24 @@ public class ConnectFour implements GadgetBehavior, Listener {
 
             blockDisplay.setTransformationMatrix(matrix);
         }
-        entity.setPositionRotation(location);
         entity.spawn();
         return entity;
+    }
+
+    /**
+     * Moves a board display into its final board region before Bukkit display state is set.
+     *
+     * <p>Connect Four uses virtual {@link BlockDisplay} entities. On Folia, calling
+     * display setters while a freshly-created helper is still at the world's default
+     * coordinates can fail the same region ownership check that affected display-based
+     * mounts. Positioning first makes the subsequent block, glow, and transform setup
+     * run against the board's real region.</p>
+     *
+     * @param entity the board display helper being configured
+     * @param location the final board-space location for the helper
+     */
+    private void positionDisplayBeforeBukkitSetup(NMSEntity entity, Location location) {
+        entity.setPositionRotation(location);
     }
 
     private Location getBoardCenter() {
@@ -328,6 +378,24 @@ public class ConnectFour implements GadgetBehavior, Listener {
 
     @Override
     public void onUpdate(CosmeticContext<GadgetType> context) {
+        if (Scheduler.isFolia() && boardOrigin != null) {
+            Scheduler.run(boardOrigin, () -> updateBoardState(context));
+            return;
+        }
+        updateBoardState(context);
+    }
+
+    /**
+     * Updates display-backed board state from the region containing the board.
+     *
+     * <p>The base gadget tick follows the owning player on Folia, but the Connect Four
+     * displays remain anchored to the board. If the owner crosses a region boundary while a
+     * game is still active, board display movement and glow changes must stay on the board
+     * region instead of following the player.</p>
+     *
+     * @param context the active gadget context
+     */
+    private void updateBoardState(CosmeticContext<GadgetType> context) {
         switch (gameState) {
             case WAITING_FOR_OPPONENT -> {
             }
@@ -345,8 +413,28 @@ public class ConnectFour implements GadgetBehavior, Listener {
         if (hoverEntity == null) {
             return;
         }
+        if (Scheduler.isFolia()) {
+            Scheduler.run(player, () -> {
+                int newColumn = Math.clamp(calculateLookedColumn(player), 0, COLUMNS - 1);
+                Scheduler.run(boardOrigin, () -> moveHoverPiece(newColumn));
+            });
+            return;
+        }
         int newColumn = Math.clamp(calculateLookedColumn(player), 0, COLUMNS - 1);
 
+        moveHoverPiece(newColumn);
+    }
+
+    /**
+     * Applies a player-calculated hover column on the board's owning region.
+     *
+     * <p>Looking at the board reads the current player's eye location, but moving the hover
+     * display mutates board-owned entity state. Splitting those steps prevents either side
+     * from being touched from the wrong Folia region.</p>
+     *
+     * @param newColumn the column the current player is looking at
+     */
+    private void moveHoverPiece(int newColumn) {
         if (newColumn != currentHoverColumn) {
             currentHoverColumn = newColumn;
         }
@@ -371,7 +459,7 @@ public class ConnectFour implements GadgetBehavior, Listener {
         targetRow = findEmptyRow(currentHoverColumn);
 
         if (targetRow == -1) {
-            getCurrentPlayer().playSound(getCurrentPlayer(), Sound.BLOCK_NOTE_BLOCK_DIDGERIDOO, 0.5f, 0.5f);
+            playNoSpaceSound();
             return;
         }
         gameState = GameState.DROPPING_PIECE;
@@ -384,6 +472,22 @@ public class ConnectFour implements GadgetBehavior, Listener {
 
         Location location = droppingEntity.getPreviousLocation();
         location.getWorld().playSound(location, Sound.ENTITY_CHICKEN_EGG, 0.5f, 1.5f);
+    }
+
+    /**
+     * Plays the invalid-move sound on the current player's owning region.
+     *
+     * <p>The board update may be running on the board region, but the sound target is the
+     * player. Folia requires player-bound effects to be sent from that player's scheduler
+     * after the player leaves the board region.</p>
+     */
+    private void playNoSpaceSound() {
+        Player currentPlayer = getCurrentPlayer();
+
+        if (currentPlayer == null) {
+            return;
+        }
+        runPlayerEffect(currentPlayer, () -> currentPlayer.playSound(currentPlayer, Sound.BLOCK_NOTE_BLOCK_DIDGERIDOO, 0.5f, 0.5f));
     }
 
     private int findEmptyRow(int column) {
@@ -460,7 +564,7 @@ public class ConnectFour implements GadgetBehavior, Listener {
 
     private void playCurrentSound() {
         Player currentPlayer = getCurrentPlayer();
-        currentPlayer.playSound(currentPlayer, Sound.BLOCK_NOTE_BLOCK_BIT, 0.5f, 1.0f);
+        runPlayerEffect(currentPlayer, () -> currentPlayer.playSound(currentPlayer, Sound.BLOCK_NOTE_BLOCK_BIT, 0.5f, 1.0f));
     }
 
     private void setEntityGlowing(NMSEntity entity, boolean glowing, Color color) {

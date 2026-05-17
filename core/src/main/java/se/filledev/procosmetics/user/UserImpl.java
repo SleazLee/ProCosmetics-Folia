@@ -257,6 +257,20 @@ public class UserImpl implements User {
     @Override
     public void setFallDamageProtection(int seconds) {
         fallDamageProtection = Long.max(System.currentTimeMillis() + seconds * 1000L, fallDamageProtection);
+        extendGrimExemptionForProtectedMovement(seconds);
+    }
+
+    /**
+     * Mirrors ProCosmetics fall-protection windows into the Grim movement hook.
+     *
+     * <p>The plugin grants fall protection where cosmetics launch, pull, or carry
+     * players. Grim needs the same time-boxed context, otherwise it may flag the
+     * protected movement even though ProCosmetics intentionally caused it.</p>
+     *
+     * @param seconds the fall-protection duration that was just applied
+     */
+    private void extendGrimExemptionForProtectedMovement(int seconds) {
+        ((ProCosmeticsPlugin) plugin).getGrimExemptionManager().exemptCosmeticMovement(uuid, (long) seconds * 20L);
     }
 
     @Override

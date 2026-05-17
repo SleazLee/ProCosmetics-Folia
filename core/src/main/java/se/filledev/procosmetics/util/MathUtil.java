@@ -24,6 +24,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
+import se.filledev.procosmetics.ProCosmeticsPlugin;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,24 +53,47 @@ public class MathUtil {
     }
 
     public static void pushEntity(Entity entity, Location location, double d) {
-        if (!(entity instanceof Player) || entity.hasMetadata("NPC")) {
+        if (!preparePlayerForCosmeticVelocity(entity)) {
             return;
         }
         entity.setVelocity(getPushVector(entity, location, d));
     }
 
     public static void pushEntity(Entity entity, Location location, double d, double d2) {
-        if (!(entity instanceof Player) || entity.hasMetadata("NPC")) {
+        if (!preparePlayerForCosmeticVelocity(entity)) {
             return;
         }
         entity.setVelocity(getPushVector(entity, location, d).setY(d2));
     }
 
     public static void pullEntity(Entity entity, Location location, double d, double d2) {
-        if (!(entity instanceof Player) || entity.hasMetadata("NPC")) {
+        if (!preparePlayerForCosmeticVelocity(entity)) {
             return;
         }
         entity.setVelocity(getPullVector(entity, location, d).setY(d2));
+    }
+
+    /**
+     * Marks a real player for Grim before ProCosmetics applies server velocity.
+     *
+     * <p>Grim sees the resulting movement later on its own checking thread, not
+     * at the moment Bukkit velocity is applied. Recording the player UUID here
+     * gives the Grim hook enough context to ignore that cosmetic push or pull
+     * without changing the NPC guard that already existed for these helpers.</p>
+     *
+     * @param entity the entity that might receive cosmetic velocity
+     * @return {@code true} when the entity is a non-NPC player that can be moved
+     */
+    private static boolean preparePlayerForCosmeticVelocity(Entity entity) {
+        if (!(entity instanceof Player player) || entity.hasMetadata("NPC")) {
+            return false;
+        }
+        ProCosmeticsPlugin plugin = ProCosmeticsPlugin.getPlugin();
+
+        if (plugin != null && plugin.getGrimExemptionManager() != null) {
+            plugin.getGrimExemptionManager().exemptCosmeticMovement(player);
+        }
+        return true;
     }
 
     public static Vector getPushVector(Entity entity, Location location, double d) {
@@ -185,16 +209,30 @@ public class MathUtil {
         return getClosestPlayersFromLocationSquared(location, range * range);
     }
 
+    /**
+     * Finds nearby players using a location-anchored entity query instead of scanning the whole world.
+     *
+     * <p>On Folia, iterating every world player and reading each location from a cosmetic region can
+     * cross region ownership boundaries. A nearby-entity query keeps the broad phase anchored to the
+     * effect location, then filters only the small candidate set that could actually be affected.</p>
+     *
+     * @param location the effect location to search around
+     * @param range the squared search range
+     * @return players close enough to the location
+     */
     public static List<Player> getClosestPlayersFromLocationSquared(Location location, double range) {
         List<Player> players = new ArrayList<>();
-        Location reusableLocation = location.clone();
+        double radius = Math.sqrt(range);
 
-        for (Player player : location.getWorld().getPlayers()) {
+        for (Entity entity : location.getWorld().getNearbyEntities(location, radius, radius + 1.0d, radius)) {
+            if (!(entity instanceof Player player)) {
+                continue;
+            }
             if (player.hasMetadata("NPC")) {
                 continue;
             }
 
-            if (player.getLocation(reusableLocation).add(0.0d, 1.0d, 0.0d).distanceSquared(location) <= range) {
+            if (player.getLocation().add(0.0d, 1.0d, 0.0d).distanceSquared(location) <= range) {
                 players.add(player);
             }
         }
@@ -202,21 +240,15 @@ public class MathUtil {
     }
 
     public static Player getClosestPlayerFromLocation(Location location, double range) {
-        double d = range * range;
-
-        for (Player player : location.getWorld().getPlayers()) {
-            if (player.getEyeLocation().distanceSquared(location) <= d && !player.hasMetadata("NPC")) {
-                return player;
-            }
+        for (Player player : getClosestPlayersFromLocation(location, range)) {
+            return player;
         }
         return null;
     }
 
     public static Player getClosestVisiblePlayerFromLocation(Player player, Location location, double range) {
-        double d = range * range;
-
-        for (Player onlinePlayer : location.getWorld().getPlayers()) {
-            if (onlinePlayer.getEyeLocation().distanceSquared(location) <= d && !onlinePlayer.hasMetadata("NPC") && player.canSee(onlinePlayer)) {
+        for (Player onlinePlayer : getClosestPlayersFromLocation(location, range)) {
+            if (player.canSee(onlinePlayer)) {
                 return onlinePlayer;
             }
         }
@@ -224,10 +256,8 @@ public class MathUtil {
     }
 
     public static Player getClosestVisiblePlayerFeetFromLocation(Player player, Location location, double range) {
-        double d = range * range;
-
-        for (Player onlinePlayer : location.getWorld().getPlayers()) {
-            if (onlinePlayer.getLocation().distanceSquared(location) <= d && !onlinePlayer.hasMetadata("NPC") && player.canSee(onlinePlayer)) {
+        for (Player onlinePlayer : getClosestPlayersFromLocation(location, range)) {
+            if (player.canSee(onlinePlayer)) {
                 return onlinePlayer;
             }
         }
@@ -238,12 +268,8 @@ public class MathUtil {
                                                                       Location location,
                                                                       double range,
                                                                       Consumer<Player> consumer) {
-        double distanceSquared = range * range;
-
-        for (Player onlinePlayer : location.getWorld().getPlayers()) {
+        for (Player onlinePlayer : getClosestPlayersFromLocation(location, range)) {
             if (player != onlinePlayer
-                    && onlinePlayer.getLocation().distanceSquared(location) <= distanceSquared
-                    && !onlinePlayer.hasMetadata("NPC")
                     && onlinePlayer.getGameMode() != GameMode.SPECTATOR
                     && player.canSee(onlinePlayer)) {
                 consumer.accept(onlinePlayer);

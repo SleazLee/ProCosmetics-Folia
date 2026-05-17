@@ -40,6 +40,7 @@ import se.filledev.procosmetics.util.item.ItemBuilderImpl;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class MelonLauncher implements GadgetBehavior, Listener {
 
@@ -56,7 +57,7 @@ public class MelonLauncher implements GadgetBehavior, Listener {
     private static final int SLICES = 6;
 
     private Item item;
-    private final List<Item> slices = new ArrayList<>();
+    private final List<Item> slices = new CopyOnWriteArrayList<>();
 
     @Override
     public void onEquip(CosmeticContext<GadgetType> context) {
@@ -64,10 +65,8 @@ public class MelonLauncher implements GadgetBehavior, Listener {
 
     @Override
     public InteractionResult onInteract(CosmeticContext<GadgetType> context, Action action, @Nullable Block clickedBlock, @Nullable Vector clickedPosition) {
-        if (item != null && item.isValid()) {
-            item.remove();
-            item = null;
-        }
+        despawn();
+
         Player player = context.getPlayer();
         Location location = player.getEyeLocation();
         item = location.getWorld().dropItem(location, MELON_BLOCK, entity -> {
@@ -83,12 +82,29 @@ public class MelonLauncher implements GadgetBehavior, Listener {
 
     @Override
     public void onUpdate(CosmeticContext<GadgetType> context) {
-        if (item == null || !item.isValid()) {
+        if (item == null) {
+            return;
+        }
+        Item thrownItem = item;
+        Scheduler.runOwned(thrownItem, null, () -> updateThrownMelon(thrownItem));
+    }
+
+    /**
+     * Updates the thrown melon from the item entity's owning region.
+     *
+     * <p>The melon item is mobile and can land in a different Folia region than the player who
+     * launched it. Ground checks, slice spawning, and item removal are therefore driven from the
+     * item scheduler instead of the player-following gadget tick.</p>
+     *
+     * @param thrownItem the melon item being updated
+     */
+    private void updateThrownMelon(Item thrownItem) {
+        if (item != thrownItem || !thrownItem.isValid()) {
             return;
         }
 
-        if (item.isOnGround()) {
-            Location location = item.getLocation();
+        if (thrownItem.isOnGround()) {
+            Location location = thrownItem.getLocation();
             location.getWorld().playEffect(location, Effect.STEP_SOUND, MELON_BLOCK.getType());
 
             List<Item> items = new ArrayList<>();
@@ -108,12 +124,13 @@ public class MelonLauncher implements GadgetBehavior, Listener {
                 items.add(droppedItem);
                 slices.add(droppedItem);
             }
-            Location despawnLocation = location.clone();
             despawn();
 
-            Scheduler.runLater(despawnLocation, () -> despawnSlices(items), SLICES_DESPAWN);
+            for (Item slice : items) {
+                Scheduler.runLaterOwned(slice, location, () -> despawnSlice(slice, true), SLICES_DESPAWN);
+            }
         } else {
-            if (item.getTicksLived() > THROWN_ITEM_DESPAWN) {
+            if (thrownItem.getTicksLived() > THROWN_ITEM_DESPAWN) {
                 despawn();
             }
         }
@@ -154,23 +171,44 @@ public class MelonLauncher implements GadgetBehavior, Listener {
     }
 
     private void despawn() {
-        if (item != null) {
-            item.remove();
-            item = null;
+        Item itemToRemove = item;
+        item = null;
+
+        if (itemToRemove != null) {
+            Scheduler.runOwned(itemToRemove, null, () -> {
+                if (itemToRemove.isValid()) {
+                    itemToRemove.remove();
+                }
+            });
         }
     }
 
     private void despawnSlices(List<Item> items) {
         for (Item slice : items) {
-            if (items != slices) {
-                slices.remove(slice);
-            }
-            if (slice.isValid()) {
-                Location location = slice.getLocation();
-                location.getWorld().spawnParticle(Particle.LARGE_SMOKE, location.add(0.0d, 0.2d, 0.0d), 0);
-                slice.remove();
-            }
+            Scheduler.runOwned(slice, null, () -> despawnSlice(slice, items != slices));
         }
         items.clear();
+    }
+
+    /**
+     * Removes one melon slice from the slice's owning region.
+     *
+     * <p>Slices inherit explosion velocity and can drift across Folia region boundaries before
+     * their cleanup delay expires. Each slice handles its own location read and removal on its
+     * entity scheduler.</p>
+     *
+     * @param slice the slice item to remove
+     * @param removeFromTrackedSlices whether to remove the slice from the shared tracked list
+     */
+    private void despawnSlice(Item slice, boolean removeFromTrackedSlices) {
+        if (removeFromTrackedSlices) {
+            slices.remove(slice);
+        }
+        if (!slice.isValid()) {
+            return;
+        }
+        Location location = slice.getLocation();
+        location.getWorld().spawnParticle(Particle.LARGE_SMOKE, location.add(0.0d, 0.2d, 0.0d), 0);
+        slice.remove();
     }
 }

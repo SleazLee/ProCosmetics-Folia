@@ -45,4 +45,5 @@ dependencies {
     }
     compileOnly("org.black_ixx:playerpoints:3.3.3")
     compileOnly("com.github.LeonMangler:SuperVanish:6.2.19")
+    compileOnly("ac.grim.grimac:GrimAPI:1.3.2.1")
 }

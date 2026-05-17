@@ -40,7 +40,8 @@ import se.filledev.procosmetics.api.event.CosmeticEntitySpawnEvent;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.cosmetic.CosmeticImpl;
-import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.CosmeticEntitySpawner;
+import se.filledev.procosmetics.util.Scheduler;
 
 public class MountImpl extends CosmeticImpl<MountType, MountBehavior> implements Mount {
 
@@ -64,37 +65,58 @@ public class MountImpl extends CosmeticImpl<MountType, MountBehavior> implements
     @Override
     protected void onEquip() {
         user.removeCosmetic(plugin.getCategoryRegistries().morphs(), false, true);
-        spawn();
+        if (!spawnAt(player.getLocation())) {
+            abortEquip();
+            return;
+        }
 
         if (rideOnSpawn && entity.isValid()) {
             entity.addPassenger(player);
         }
+        refreshGrimExemptionIfRiding(entity);
         runTaskTimer(plugin, 0L, 1L);
     }
 
     @Override
     protected void onUpdate() {
-        if (nmsEntity != null && entity.isValid()) {
-            behavior.onUpdate(this, entity, nmsEntity);
+        Entity currentEntity = entity;
+        NMSEntity currentNmsEntity = nmsEntity;
 
-            // Follow player around
-            if (entity instanceof LivingEntity && player.getVehicle() != entity && user.isMoving()) {
-                nmsEntity.follow(player);
-            }
+        if (currentNmsEntity == null || currentEntity == null || !currentEntity.isValid()) {
+            return;
+        }
+        boolean shouldFollow = currentEntity instanceof LivingEntity
+                && player.getVehicle() != currentEntity
+                && user.isMoving();
+
+        if (Scheduler.isFolia()) {
+            Scheduler.run(currentEntity, () -> handleEntityThreadUpdate(currentEntity, currentNmsEntity, shouldFollow));
+            return;
+        }
+        handleEntityThreadUpdate(currentEntity, currentNmsEntity, shouldFollow);
+    }
+
+    private void handleEntityThreadUpdate(Entity currentEntity, NMSEntity currentNmsEntity, boolean shouldFollow) {
+        if (entity != currentEntity || nmsEntity != currentNmsEntity || !currentEntity.isValid()) {
+            return;
+        }
+        refreshGrimExemptionIfRiding(currentEntity);
+        behavior.onUpdate(this, currentEntity, currentNmsEntity);
+        refreshGrimExemptionIfRiding(currentEntity);
+
+        if (shouldFollow) {
+            currentNmsEntity.follow(player);
         }
     }
 
     @Override
     protected void onUnequip() {
-        if (nmsEntity != null) {
-            nmsEntity = null;
-        }
+        NMSEntity currentNmsEntity = nmsEntity;
+        nmsEntity = null;
+        Entity currentEntity = entity;
+        entity = null;
 
-        if (entity != null) {
-            entity.eject();
-            entity.remove();
-            entity = null;
-        }
+        removeMountedEntity(currentEntity, currentNmsEntity);
     }
 
     @EventHandler
@@ -109,6 +131,7 @@ public class MountImpl extends CosmeticImpl<MountType, MountBehavior> implements
         if (clicker.equals(player)) {
             if (!player.isInsideVehicle()) {
                 entity.addPassenger(player);
+                refreshGrimExemptionIfRiding(entity);
             }
         } else {
             User clickUser = plugin.getUserManager().getConnected(clicker);
@@ -157,10 +180,32 @@ public class MountImpl extends CosmeticImpl<MountType, MountBehavior> implements
 
     @Override
     public void spawn(Location location) {
-        if (entity != null) {
-            entity.remove();
+        if (!spawnAt(location) && isEquipped()) {
+            unequip(false, false);
         }
-        entity = location.getWorld().spawn(location, cosmeticType.getEntityType().getEntityClass(), entity -> {
+    }
+
+    /**
+     * Spawns the mount through the shared cosmetic entity spawn path.
+     *
+     * <p>Mounts are both visible cosmetics and interactive vehicles. If their
+     * entity spawn is cancelled, the equip flow must stop before adding passengers,
+     * starting update tasks, sending success messages, or saving the mount as
+     * equipped. The shared spawner also supports non-living mounts, such as
+     * boats and display entities, while still tagging the entity early enough
+     * for protection plugins to identify ProCosmetics-owned spawns.</p>
+     *
+     * @param location the location where the mount should appear
+     * @return {@code true} when the mount entity and NMS wrapper were created successfully
+     */
+    private boolean spawnAt(Location location) {
+        NMSEntity currentNmsEntity = nmsEntity;
+        Entity currentEntity = entity;
+        nmsEntity = null;
+        entity = null;
+        removeMountedEntity(currentEntity, currentNmsEntity);
+
+        entity = CosmeticEntitySpawner.spawn(location, cosmeticType.getEntityType(), entity -> {
             entity.setCustomName(SERIALIZER.serialize(user.translate(
                     "cosmetic.mounts.name_tag",
                     Placeholder.unparsed("player", player.getName()),
@@ -177,19 +222,21 @@ public class MountImpl extends CosmeticImpl<MountType, MountBehavior> implements
                 }
             }
             nmsEntity = plugin.getNMSManager().entityToNMSEntity(entity);
-            MetadataUtil.setCustomEntity(entity);
             behavior.setupEntity(this, entity, nmsEntity);
         });
 
         // Ensure that the entity has been spawned and was not blocked by other plugins
-        if (!entity.isValid()) {
-            unequip(false, false);
-            return;
+        if (entity == null || nmsEntity == null || !entity.isValid()) {
+            nmsEntity = null;
+            entity = null;
+            return false;
         }
+        nmsEntity.stopNavigation();
         behavior.postSetupEntity(this, entity, nmsEntity);
 
         CosmeticEntitySpawnEvent event = new CosmeticEntitySpawnEvent(plugin, user, player, entity);
         plugin.getServer().getPluginManager().callEvent(event);
+        return true;
     }
 
     @Override
@@ -200,5 +247,38 @@ public class MountImpl extends CosmeticImpl<MountType, MountBehavior> implements
     @Override
     public NMSEntity getNMSEntity() {
         return nmsEntity;
+    }
+
+    private void removeMountedEntity(Entity mountedEntity, NMSEntity mountedNmsEntity) {
+        if (mountedEntity == null) {
+            return;
+        }
+        Scheduler.run(mountedEntity, () -> {
+            if (mountedNmsEntity != null) {
+                mountedNmsEntity.stopNavigation();
+            }
+            if (!mountedEntity.isValid()) {
+                return;
+            }
+            mountedEntity.eject();
+            mountedEntity.remove();
+        });
+    }
+
+    /**
+     * Refreshes the Grim exemption only while the player is riding this mount.
+     *
+     * <p>Mount movement is legitimate only while the player is actually a
+     * passenger. Refreshing before and after the behavior update gives Grim
+     * context before the cosmetic applies vehicle velocity and keeps the window
+     * alive for delayed AntiKB-style processing. The short expiry naturally ends
+     * after the player dismounts.</p>
+     *
+     * @param currentEntity the mounted entity being updated
+     */
+    private void refreshGrimExemptionIfRiding(Entity currentEntity) {
+        if (player.getVehicle() == currentEntity) {
+            plugin.getGrimExemptionManager().exemptMountRide(player);
+        }
     }
 }

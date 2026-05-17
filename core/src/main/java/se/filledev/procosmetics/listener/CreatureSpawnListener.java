@@ -22,12 +22,24 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason;
+import se.filledev.procosmetics.util.MetadataUtil;
 
 public class CreatureSpawnListener implements Listener {
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    /**
+     * Allows only ProCosmetics-tagged custom entity spawns to bypass generic spawn
+     * cancellation from protection plugins such as WorldGuard.
+     *
+     * <p>Server owners should still use ProCosmetics' own WorldGuard flags to deny
+     * cosmetics in regions. This listener exists only so unrelated flags like
+     * {@code mob-spawning: deny} do not make cosmetic pets and mounts silently fail
+     * after the plugin has already accepted the equip request.</p>
+     *
+     * @param event the creature spawn event fired by Bukkit/Paper
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onCreatureSpawn(CreatureSpawnEvent event) {
-        if (event.getSpawnReason() == SpawnReason.CUSTOM) {
+        if (event.getSpawnReason() == SpawnReason.CUSTOM && MetadataUtil.isCustomEntity(event.getEntity())) {
             event.setCancelled(false);
         }
     }

@@ -34,10 +34,10 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.api.util.structure.type.BlockDisplayStructure;
 import se.filledev.procosmetics.nms.EntityTrackerImpl;
+import se.filledev.procosmetics.util.CosmeticEntitySpawner;
 import se.filledev.procosmetics.util.FastMathUtil;
 import se.filledev.procosmetics.util.LocationUtil;
 import se.filledev.procosmetics.util.MathUtil;
-import se.filledev.procosmetics.util.MetadataUtil;
 import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.structure.type.BlockDisplayStructureImpl;
 
@@ -70,7 +70,7 @@ public class Swing implements GadgetBehavior, Listener {
         center = LocationUtil.center(player.getLocation());
         angle = structure.spawn(center);
 
-        ArmorStand seatEntity = center.getWorld().spawn(center, ArmorStand.class, entity -> {
+        ArmorStand seatEntity = CosmeticEntitySpawner.spawnLiving(center, ArmorStand.class, entity -> {
             entity.getEquipment().setHelmet(SEAT_ITEM);
             entity.setBasePlate(false);
             entity.setVisible(false);
@@ -78,9 +78,12 @@ public class Swing implements GadgetBehavior, Listener {
 
             seat = context.getPlugin().getNMSManager().entityToNMSEntity(entity);
             seat.setNoClip(true);
-
-            MetadataUtil.setCustomEntity(entity);
         });
+
+        if (seatEntity == null) {
+            onUnequip(context);
+            return InteractionResult.fail();
+        }
         seatEntity.addPassenger(player);
 
         for (int i = 0; i < 2; i++) {
@@ -105,42 +108,75 @@ public class Swing implements GadgetBehavior, Listener {
     @Override
     public void onUpdate(CosmeticContext<GadgetType> context) {
         if (seat != null) {
-            Entity entity = seat.getBukkitEntity();
-
-            if (entity.getPassengers().isEmpty()) {
-                if (amplifier > 0.0f) {
-                    amplifier -= ACCELERATION;
-                }
-            } else {
-                if (amplifier < MAX_ACCELERATION) {
-                    amplifier += ACCELERATION;
-                }
-            }
-            // Do not perform the calculations below if it does not have a positive amplifier (if the swing is not moving)
-            if (amplifier < 0.0f) {
-                return;
-            }
-            float tickRadians = FastMathUtil.toRadians(ticks * 8.0f);
-            float cosValue = FastMathUtil.cos(tickRadians);
-
-            double forward = 3.0f * amplifier * FastMathUtil.sin(tickRadians);
-            double height = (2.5f - 2.5f * Math.abs(cosValue)) * amplifier - 1.0f;
-
-            Vector vector = MathUtil.rotateAroundAxisY(new Vector(0.0f, height, forward), angle);
-            seat.setPositionRotation(center.clone().add(vector));
-            seat.setHeadPose((float) Math.toDegrees(-forward * 0.1), 0.0f, 0.0f);
-
-            ticks++;
+            NMSEntity currentSeat = seat;
+            Scheduler.runOwned(currentSeat, () -> updateSeat(currentSeat));
         }
     }
 
     @Override
     public void onUnequip(CosmeticContext<GadgetType> context) {
+        if (Scheduler.isFolia() && center != null) {
+            Scheduler.run(center, this::cleanupSwing);
+            return;
+        }
+        cleanupSwing();
+    }
+
+    /**
+     * Updates swing passenger state and movement from the seat entity's owning region.
+     *
+     * <p>The base gadget tick follows the owner, but the swing seat can stay behind in its original
+     * Folia region. Passenger reads and armor-stand movement are entity state, so they are routed
+     * through the seat scheduler after the owner moves away.</p>
+     *
+     * @param currentSeat the seat entity captured before the scheduler hop
+     */
+    private void updateSeat(NMSEntity currentSeat) {
+        if (seat != currentSeat) {
+            return;
+        }
+        Entity entity = currentSeat.getBukkitEntity();
+
+        if (entity.getPassengers().isEmpty()) {
+            if (amplifier > 0.0f) {
+                amplifier -= ACCELERATION;
+            }
+        } else {
+            if (amplifier < MAX_ACCELERATION) {
+                amplifier += ACCELERATION;
+            }
+        }
+        // Do not perform the calculations below if it does not have a positive amplifier (if the swing is not moving)
+        if (amplifier < 0.0f) {
+            return;
+        }
+        float tickRadians = FastMathUtil.toRadians(ticks * 8.0f);
+        float cosValue = FastMathUtil.cos(tickRadians);
+
+        double forward = 3.0f * amplifier * FastMathUtil.sin(tickRadians);
+        double height = (2.5f - 2.5f * Math.abs(cosValue)) * amplifier - 1.0f;
+
+        Vector vector = MathUtil.rotateAroundAxisY(new Vector(0.0f, height, forward), angle);
+        currentSeat.setPositionRotation(center.clone().add(vector));
+        currentSeat.setHeadPose((float) Math.toDegrees(-forward * 0.1), 0.0f, 0.0f);
+
+        ticks++;
+    }
+
+    /**
+     * Removes the swing structure and seat from their owning regions.
+     *
+     * <p>Unequip can be triggered by a player in a different Folia region than the original swing.
+     * Structure cleanup is anchored to the swing center, while the seat removal is dispatched through
+     * the seat entity scheduler.</p>
+     */
+    private void cleanupSwing() {
         structure.remove();
         amplifier = 0.0f;
 
         if (seat != null) {
-            seat.getBukkitEntity().remove();
+            NMSEntity currentSeat = seat;
+            Scheduler.runOwned(currentSeat, () -> currentSeat.getBukkitEntity().remove());
             seat = null;
         }
         tracker.destroy();

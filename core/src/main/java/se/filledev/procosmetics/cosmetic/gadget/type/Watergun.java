@@ -34,16 +34,17 @@ import se.filledev.procosmetics.api.cosmetic.CosmeticContext;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetBehavior;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Watergun implements GadgetBehavior {
 
     private static final ItemStack ITEM_STACK = new ItemStack(Material.BLUE_DYE);
     private static final Vector OFFSET_VECTOR = new Vector(0.0d, 0.4d, 0.0d);
 
-    private final Set<Projectile> balls = new HashSet<>();
+    private final Set<Projectile> balls = ConcurrentHashMap.newKeySet();
 
     private Location location;
 
@@ -76,25 +77,46 @@ public class Watergun implements GadgetBehavior {
     @Override
     public void onUpdate(CosmeticContext<GadgetType> context) {
         for (Projectile projectile : balls) {
-            if (projectile.isValid()) {
-                context.getPlayer().getWorld().spawnParticle(Particle.SPLASH,
-                        projectile.getLocation(location),
-                        0,
-                        0.0d,
-                        0.0d,
-                        0.0d,
-                        1.0d
-                );
-            }
+            Scheduler.runOwned(projectile, location, () -> updateProjectileSplash(projectile));
         }
     }
 
     @Override
     public void onUnequip(CosmeticContext<GadgetType> context) {
-        for (Entity entity : balls) {
-            entity.remove();
-        }
+        Set<Projectile> projectilesToRemove = Set.copyOf(balls);
         balls.clear();
+
+        for (Entity entity : projectilesToRemove) {
+            Scheduler.runOwned(entity, location, entity::remove);
+        }
+    }
+
+    /**
+     * Renders a water projectile splash from the projectile's owning region.
+     *
+     * <p>Snowballs move quickly and can leave the player's Folia region between gadget ticks.
+     * Reading their location from the projectile scheduler prevents player-region updates from
+     * touching projectile state after a region crossing.</p>
+     *
+     * @param projectile the projectile to render
+     */
+    private void updateProjectileSplash(Projectile projectile) {
+        if (!balls.contains(projectile)) {
+            return;
+        }
+        if (!projectile.isValid()) {
+            balls.remove(projectile);
+            return;
+        }
+        Location projectileLocation = projectile.getLocation();
+        projectileLocation.getWorld().spawnParticle(Particle.SPLASH,
+                projectileLocation,
+                0,
+                0.0d,
+                0.0d,
+                0.0d,
+                1.0d
+        );
     }
 
     @Override

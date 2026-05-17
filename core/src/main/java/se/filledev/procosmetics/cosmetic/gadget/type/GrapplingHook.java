@@ -32,6 +32,7 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetBehavior;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.cosmetic.gadget.GadgetImpl;
+import se.filledev.procosmetics.util.Scheduler;
 
 public class GrapplingHook implements GadgetBehavior, Listener {
 
@@ -105,17 +106,32 @@ public class GrapplingHook implements GadgetBehavior, Listener {
         } else {
             Entity hook = event.getHook();
 
-            Vector vector = hook.getLocation().subtract(player.getLocation()).toVector().multiply(1.3d);
+            Scheduler.runOwned(hook, null, () -> pullPlayerFromOwnRegion(hook));
+            thrownHook = false;
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Reads the hook position from the hook's owning region, then moves the player from theirs.
+     *
+     * <p>The fishing hook can land across a Folia region boundary. Reading the hook location and
+     * removing it are hook-region operations, while player velocity and fall protection must be
+     * applied on the player scheduler.</p>
+     *
+     * @param hook the active fishing hook entity
+     */
+    private void pullPlayerFromOwnRegion(Entity hook) {
+        Location hookLocation = hook.getLocation();
+
+        Scheduler.run(player, () -> {
+            Vector vector = hookLocation.clone().subtract(player.getLocation()).toVector().multiply(1.3d);
             vector.setY(vector.getY() + 0.5d);
             vector.normalize().multiply(MULTIPLIER_VECTOR);
 
             player.setVelocity(vector);
             user.setFallDamageProtection(8);
-
-            thrownHook = false;
-
-            hook.remove();
-            event.setCancelled(true);
-        }
+        });
+        hook.remove();
     }
 }

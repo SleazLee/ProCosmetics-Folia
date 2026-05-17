@@ -523,12 +523,20 @@ public class NMSEntity extends NMSEntityImpl<Packet<? super ClientGamePacketList
     }
 
     @Override
+    public void stopNavigation() {
+        if (entity instanceof Mob entityInsentient) {
+            entityInsentient.getNavigation().stop();
+        }
+    }
+
+    @Override
     public void removePathfinder() {
         try {
             Mob entityInsentient = (Mob) entity;
 
             entityInsentient.goalSelector.getAvailableGoals().clear();
             entityInsentient.targetSelector.getAvailableGoals().clear();
+            stopNavigation();
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -31,6 +31,7 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.api.util.structure.type.ParentBlockDisplayStructure;
 import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.structure.type.ParentBlockDisplayStructureImpl;
 
 public class Rocket implements GadgetBehavior {
@@ -47,6 +48,7 @@ public class Rocket implements GadgetBehavior {
     private int tick;
     private double speed;
     private Location seatLocation;
+    private Display seatEntity;
 
     @Override
     public void onEquip(CosmeticContext<GadgetType> context) {
@@ -62,7 +64,7 @@ public class Rocket implements GadgetBehavior {
 
         seatLocation = center.clone().add(0.0d, HEIGHT_OFFSET, 0.0d);
 
-        Display seatEntity = seatLocation.getWorld().spawn(seatLocation, BlockDisplay.class, entity -> {
+        seatEntity = seatLocation.getWorld().spawn(seatLocation, BlockDisplay.class, entity -> {
             entity.setTeleportDuration(2);
             MetadataUtil.setCustomEntity(entity);
         });
@@ -82,46 +84,63 @@ public class Rocket implements GadgetBehavior {
         if (seat == null) {
             return;
         }
+        NMSEntity currentSeat = seat;
+        Display currentSeatEntity = seatEntity;
+        Scheduler.runOwned(currentSeatEntity, seatLocation, () -> updateRocket(context, currentSeat));
+    }
+
+    /**
+     * Updates launch movement from the rocket seat's owning region.
+     *
+     * <p>The player can move with the rocket into another Folia region while the base gadget tick
+     * still originates from the player scheduler. Seat movement, structure tracker positions, block
+     * collision checks, and launch particles are all tied to the moving rocket seat.</p>
+     *
+     * @param context the active gadget context
+     * @param currentSeat the active rocket seat captured before the scheduler hop
+     */
+    private void updateRocket(CosmeticContext<GadgetType> context, NMSEntity currentSeat) {
+        if (seat != currentSeat || seatLocation == null) {
+            return;
+        }
         World world = seatLocation.getWorld();
 
         if (launching) {
             if (speed < MAX_SPEED) {
                 speed += ACCELERATION;
             }
-            seat.setPositionRotation(seatLocation.add(0.0d, speed, 0.0d));
+            seatLocation.add(0.0d, speed, 0.0d);
+            currentSeat.setPositionRotation(seatLocation);
 
             // Set this to make sure the tracker updates its location and also prevent a spawn-in flicker
             for (NMSEntity entity : structure.getPlacedEntries()) {
                 entity.setPreviousLocation(entity.getPreviousLocation().add(0.0d, speed, 0.0d));
             }
-            seatLocation.subtract(0.0d, HEIGHT_OFFSET, 0.0d);
-            world.spawnParticle(Particle.FLAME, seatLocation, 10, 0.2f, 0.2f, 0.2f, 0.0d);
-            world.spawnParticle(Particle.CLOUD, seatLocation, 10, 0.2f, 0.2f, 0.2f, 0.0d);
-            world.spawnParticle(Particle.EXPLOSION, seatLocation, 1, 0.2f, 0.2f, 0.2f, 0.0d);
-            seatLocation.add(0.0d, HEIGHT_OFFSET, 0.0d);
+            Location flameLocation = seatLocation.clone().subtract(0.0d, HEIGHT_OFFSET, 0.0d);
+            world.spawnParticle(Particle.FLAME, flameLocation, 10, 0.2f, 0.2f, 0.2f, 0.0d);
+            world.spawnParticle(Particle.CLOUD, flameLocation, 10, 0.2f, 0.2f, 0.2f, 0.0d);
+            world.spawnParticle(Particle.EXPLOSION, flameLocation, 1, 0.2f, 0.2f, 0.2f, 0.0d);
             world.playSound(seatLocation, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.8f, 0.0f);
 
             if (tick > 220 && tick < 240) {
                 world.playSound(seatLocation, Sound.ENTITY_ZOMBIE_ATTACK_IRON_DOOR, 0.4f, 0.0f);
                 world.playSound(seatLocation, Sound.BLOCK_ANVIL_LAND, 0.4f, 0.0f);
             } else if (tick == 240) {
-                explode(context, seatLocation);
+                explode(context, seatLocation.clone());
             }
-            seatLocation.add(0.0d, Y_COLLISION_CHECK, 0.0d);
-            Material topMaterial = seatLocation.getBlock().getType();
+            Location collisionLocation = seatLocation.clone().add(0.0d, Y_COLLISION_CHECK, 0.0d);
+            Material topMaterial = collisionLocation.getBlock().getType();
 
             if (!topMaterial.isAir()) {
-                explode(context, seatLocation);
+                explode(context, collisionLocation);
                 return;
             }
-            seatLocation.subtract(0.0d, Y_COLLISION_CHECK, 0.0d);
         } else {
             world.playSound(seatLocation, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.1f, 0.0f);
 
             if (tick % 20 == 0) {
-                seatLocation.subtract(0.0d, HEIGHT_OFFSET, 0.0d);
-                world.spawnParticle(Particle.CLOUD, seatLocation, 10, 0.2f, 0.2f, 0.2f, 0.0d);
-                seatLocation.add(0.0d, HEIGHT_OFFSET, 0.0d);
+                Location smokeLocation = seatLocation.clone().subtract(0.0d, HEIGHT_OFFSET, 0.0d);
+                world.spawnParticle(Particle.CLOUD, smokeLocation, 10, 0.2f, 0.2f, 0.2f, 0.0d);
 
                 if (tick == 100) {
                     launching = true;
@@ -141,12 +160,39 @@ public class Rocket implements GadgetBehavior {
 
     @Override
     public void onUnequip(CosmeticContext<GadgetType> context) {
-        structure.remove();
-        launching = false;
+        NMSEntity currentSeat = seat;
+        Display currentSeatEntity = seatEntity;
+        Location cleanupLocation = seatLocation != null ? seatLocation.clone() : null;
 
-        if (seat != null) {
-            seat.getBukkitEntity().remove();
-            seat = null;
+        seat = null;
+        seatEntity = null;
+        seatLocation = null;
+        launching = false;
+        speed = 0.0d;
+        tick = 0;
+
+        if (Scheduler.isFolia() && (currentSeatEntity != null || cleanupLocation != null)) {
+            Scheduler.runOwned(currentSeatEntity, cleanupLocation, () -> cleanupRocket(currentSeat, currentSeatEntity));
+            return;
+        }
+        cleanupRocket(currentSeat, currentSeatEntity);
+    }
+
+    /**
+     * Removes rocket structure and seat from the seat's final region.
+     *
+     * <p>Rocket cleanup can be caused by a timer, collision, or player unequip after the owner has
+     * crossed Folia regions. Keeping structure tracker teardown and display removal beside the seat
+     * prevents stale rocket entities from being removed from the wrong region.</p>
+     *
+     * @param currentSeat the rocket seat wrapper active when cleanup was requested
+     * @param currentSeatEntity the Bukkit display seat to remove
+     */
+    private void cleanupRocket(NMSEntity currentSeat, Display currentSeatEntity) {
+        structure.remove();
+
+        if (currentSeat != null && currentSeatEntity != null) {
+            currentSeatEntity.remove();
         }
     }
 

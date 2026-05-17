@@ -20,6 +20,18 @@ world_guard:
   # when they leave a restricted region where cosmetics are disabled.
   restore_cosmetics: true
 
+grim:
+  # Specifies if ProCosmetics should hook into GrimAC when it is installed.
+  enabled: true
+  # How long a successful gadget use should be exempt when the gadget has no longer active duration.
+  gadget_fallback_ticks: 40
+  # Mount exemptions are refreshed while the player is actively riding a ProCosmetics mount.
+  mount_refresh_ticks: 40
+  # How long one-off cosmetic velocity should suppress delayed Grim checks such as AntiKB.
+  velocity_ticks: 120
+  # Extra ticks added to each exemption window so Grim can finish processing delayed movement packets.
+  grace_ticks: 10
+
 storage:
   # Types: SQLite, MySQL, MariaDB or PostgreSQL, MongoDB
   type: SQLITE
@@ -320,4 +332,4 @@ menu:
           slot: 10
 
 # Do not edit this!
-config_version: 1
+config_version: 2

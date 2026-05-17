@@ -59,19 +59,33 @@ public class BlockDisplayStructureImpl extends StructureImpl<NMSEntity> implemen
             rotate(blockData, location.getYaw());
 
             NMSEntity nmsFallingBlock = PLUGIN.getNMSManager().createEntity(location.getWorld(), EntityType.BLOCK_DISPLAY, tracker);
+            Location displayLocation = location.clone().add(vector);
+            positionDisplayBeforeBukkitSetup(nmsFallingBlock, displayLocation);
+
             if (nmsFallingBlock.getBukkitEntity() instanceof BlockDisplay blockDisplay) {
                 blockDisplay.setBlock(blockData);
                 blockDisplay.setTeleportDuration(2);
                 blockDisplay.setTransformationMatrix(transformationMatrix);
             }
-            location.add(vector);
-            nmsFallingBlock.setPositionRotation(location);
-            location.subtract(vector);
-
             placedEntries.add(nmsFallingBlock);
         }
         tracker.startTracking();
         return angle;
+    }
+
+    /**
+     * Positions virtual display entities before touching their Bukkit wrapper state.
+     *
+     * <p>Folia assigns entity state to the region containing the entity's current
+     * coordinates. Newly-created packet helpers start at the world's default
+     * coordinates, so display setters such as {@link BlockDisplay#setBlock(BlockData)}
+     * must run after the helper has been moved to the structure block's real region.</p>
+     *
+     * @param entity the display helper entity being configured
+     * @param location the final structure position for the display helper
+     */
+    private void positionDisplayBeforeBukkitSetup(NMSEntity entity, Location location) {
+        entity.setPositionRotation(location);
     }
 
     @Override

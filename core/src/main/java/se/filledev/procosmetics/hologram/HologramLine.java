@@ -37,6 +37,7 @@ public class HologramLine {
 
         if (!text.equals(Component.empty())) {
             entity = ProCosmeticsPlugin.getPlugin().getNMSManager().createEntity(hologram.getWorld(), EntityType.ARMOR_STAND, tracker);
+            positionLineBeforeBukkitSetup();
             entity.setCustomName(text);
 
             if (entity.getBukkitEntity() instanceof ArmorStand armorStand) {
@@ -45,6 +46,17 @@ public class HologramLine {
                 armorStand.setArms(false);
             }
         }
+    }
+
+    /**
+     * Places the virtual hologram armor stand before Bukkit armor-stand state is configured.
+     *
+     * <p>Hologram lines are repositioned again after insertion, but Folia still validates the
+     * initial invisibility and marker-style setters against the entity's current region. Moving the
+     * helper to the hologram anchor first avoids configuring it at the world origin.</p>
+     */
+    private void positionLineBeforeBukkitSetup() {
+        entity.setPositionRotation(new Location(hologram.getWorld(), hologram.getX(), hologram.getY(), hologram.getZ()));
     }
 
     public Spacing getSpacing() {

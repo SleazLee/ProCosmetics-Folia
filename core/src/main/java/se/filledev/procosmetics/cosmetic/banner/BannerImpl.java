@@ -116,7 +116,18 @@ public class BannerImpl extends CosmeticImpl<BannerType, BannerBehavior> impleme
         if (player.getGameMode() != GameMode.CREATIVE) {
             player.updateInventory();
         }
-        Scheduler.runLater(player.getLocation(), () -> {
+        scheduleDelayedBannerRefresh();
+    }
+
+    /**
+     * Re-sends the virtual banner equipment from the player's owning region.
+     *
+     * <p>The delayed refresh exists because inventory clicks briefly desync the helmet slot. On
+     * Folia, the final equipment packet should be sent from the player scheduler instead of a
+     * location captured before the delay.</p>
+     */
+    private void scheduleDelayedBannerRefresh() {
+        Scheduler.runLater(player, () -> {
             if (isEquipped() && nmsEquipment != null) {
                 nmsEquipment.sendUpdateToPlayer(player);
             }

@@ -47,6 +47,9 @@ public class MoltenSnake implements MountBehavior {
             cube.setSize(2);
         }
         Location location = context.getPlayer().getLocation();
+        if (location.getWorld() == null) {
+            return;
+        }
         Vector vector = location.getDirection().multiply(-0.5d);
 
         Matrix4f transformationMatrix = new Matrix4f();
@@ -56,16 +59,35 @@ public class MoltenSnake implements MountBehavior {
                 .translate(-0.5f, 0.5f, -0.5f);
 
         for (int i = 0; i < TAILS; i++) {
+            location.add(vector);
             NMSEntity tailEntity = context.getPlugin().getNMSManager().createEntity(location.getWorld(), EntityType.BLOCK_DISPLAY, tracker);
 
+            if (tailEntity == null) {
+                continue;
+            }
+            positionTailBeforeDisplaySetup(tailEntity, location);
             if (tailEntity.getBukkitEntity() instanceof BlockDisplay blockDisplay) {
                 blockDisplay.setBlock(BLOCK_DATA);
                 blockDisplay.setTransformationMatrix(transformationMatrix);
                 blockDisplay.setTeleportDuration(2);
             }
-            tailEntity.setPositionRotation(location.add(vector));
         }
         tracker.startTracking();
+    }
+
+    /**
+     * Moves the virtual display to its real tail location before using Bukkit display setters.
+     *
+     * <p>Folia validates {@link BlockDisplay} state changes against the display
+     * entity's owning region. Newly-created packet/NMS displays start at
+     * {@code 0,0,0}; setting the block data before moving them can fail when the
+     * mount is being equipped on a different region thread.</p>
+     *
+     * @param tailEntity the virtual tail display entity
+     * @param location the tail location on the current mount region
+     */
+    private void positionTailBeforeDisplaySetup(NMSEntity tailEntity, Location location) {
+        tailEntity.setPositionRotation(location);
     }
 
     @Override

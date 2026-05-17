@@ -23,6 +23,7 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
@@ -34,6 +35,7 @@ import se.filledev.procosmetics.api.cosmetic.gadget.GadgetBehavior;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.util.MathUtil;
+import se.filledev.procosmetics.util.Scheduler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,18 +58,13 @@ public class Detonator implements GadgetBehavior {
     @Override
     public InteractionResult onInteract(CosmeticContext<GadgetType> context, Action action, @Nullable Block clickedBlock, @Nullable Vector clickedPosition) {
         if (shouldExplode()) {
-            // Explode all
-            for (NMSEntity nmsEntity : entities) {
-                Location location = nmsEntity.getPreviousLocation().clone();
-
-                for (Player nearbyPlayer : MathUtil.getClosestPlayersFromLocation(location, 4.0d)) {
-                    MathUtil.pushEntity(nearbyPlayer, location, 2.0d, 0.5d);
-                }
-                location.getWorld().playSound(location, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 1.0f);
-                location.getWorld().spawnParticle(Particle.EXPLOSION, location.add(0.0d, 1.0d, 0.0d), 0);
-                nmsEntity.getTracker().destroy();
-            }
+            List<NMSEntity> bombs = List.copyOf(entities);
             entities.clear();
+
+            for (NMSEntity nmsEntity : bombs) {
+                Location location = nmsEntity.getPreviousLocation().clone();
+                Scheduler.run(location, () -> explodeBomb(nmsEntity));
+            }
             return InteractionResult.success();
         } else {
             // Should never happen in this case
@@ -81,6 +78,7 @@ public class Detonator implements GadgetBehavior {
             Player player = context.getPlayer();
 
             NMSEntity nmsEntity = context.getPlugin().getNMSManager().createEntity(player.getWorld(), EntityType.ARMOR_STAND);
+            positionBombBeforeBukkitSetup(nmsEntity, location);
 
             if (nmsEntity.getBukkitEntity() instanceof ArmorStand armorStand) {
                 armorStand.setInvisible(true);
@@ -89,7 +87,6 @@ public class Detonator implements GadgetBehavior {
                 armorStand.setMarker(true);
             }
             nmsEntity.setHelmet(TNT_ITEM);
-            nmsEntity.setPositionRotation(location);
             nmsEntity.setHeadPose(0.0f, player.getLocation().getYaw(), 0.0f);
             nmsEntity.getTracker().startTracking();
             entities.add(nmsEntity);
@@ -104,12 +101,65 @@ public class Detonator implements GadgetBehavior {
 
     @Override
     public void onUnequip(CosmeticContext<GadgetType> context) {
-        for (NMSEntity nmsEntity : entities) {
-            Location location = nmsEntity.getPreviousLocation();
-            location.getWorld().spawnParticle(Particle.CLOUD, location, 0);
-            nmsEntity.getTracker().destroy();
-        }
+        List<NMSEntity> bombs = List.copyOf(entities);
         entities.clear();
+
+        for (NMSEntity nmsEntity : bombs) {
+            Location location = nmsEntity.getPreviousLocation().clone();
+            Scheduler.run(location, () -> removeBomb(nmsEntity));
+        }
+    }
+
+    /**
+     * Moves a virtual TNT armor stand before Bukkit armor-stand state is configured.
+     *
+     * <p>Folia validates armor-stand wrapper setters against the entity's current region. Virtual
+     * NMS helpers start at the world origin, so the bomb must be positioned at the clicked block
+     * before invisibility, marker, and equipment state are applied.</p>
+     *
+     * @param entity the virtual bomb entity being configured
+     * @param location the final bomb location
+     */
+    private void positionBombBeforeBukkitSetup(NMSEntity entity, Location location) {
+        entity.setPositionRotation(location);
+    }
+
+    /**
+     * Explodes one placed bomb from the bomb's anchored region.
+     *
+     * <p>The click that triggers detonation belongs to the player's current region, while older
+     * bombs may be in regions the player has already left. Explosion particles and virtual entity
+     * cleanup stay at the bomb location, and player knockback is handed to each player's scheduler.</p>
+     *
+     * @param nmsEntity the bomb being detonated
+     */
+    private void explodeBomb(NMSEntity nmsEntity) {
+        Location location = nmsEntity.getPreviousLocation().clone();
+        Location pushSource = location.clone();
+
+        for (Entity nearbyEntity : location.getWorld().getNearbyEntities(location, 4.0d, 4.0d, 4.0d)) {
+            if (nearbyEntity instanceof Player nearbyPlayer) {
+                Scheduler.run(nearbyPlayer, () -> MathUtil.pushEntity(nearbyPlayer, pushSource, 2.0d, 0.5d));
+            }
+        }
+        location.getWorld().playSound(location, Sound.ENTITY_GENERIC_EXPLODE, 0.5f, 1.0f);
+        location.getWorld().spawnParticle(Particle.EXPLOSION, location.add(0.0d, 1.0d, 0.0d), 0);
+        nmsEntity.getTracker().destroy();
+    }
+
+    /**
+     * Removes one placed bomb from its anchored region.
+     *
+     * <p>Unequip can be triggered after the owner moves away from previously placed bombs. This
+     * cleanup keeps the cloud effect and tracker teardown on the bomb region instead of the player
+     * region.</p>
+     *
+     * @param nmsEntity the bomb being removed
+     */
+    private void removeBomb(NMSEntity nmsEntity) {
+        Location location = nmsEntity.getPreviousLocation();
+        location.getWorld().spawnParticle(Particle.CLOUD, location, 0);
+        nmsEntity.getTracker().destroy();
     }
 
     @Override

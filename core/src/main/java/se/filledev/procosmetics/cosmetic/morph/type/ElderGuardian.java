@@ -32,8 +32,8 @@ import se.filledev.procosmetics.api.cosmetic.morph.MorphType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.cosmetic.morph.FlyableMorph;
+import se.filledev.procosmetics.util.CosmeticEntitySpawner;
 import se.filledev.procosmetics.util.MathUtil;
-import se.filledev.procosmetics.util.MetadataUtil;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -99,12 +99,15 @@ public class ElderGuardian extends FlyableMorph {
                     break;
                 }
             }
-            armorStand = location.getWorld().spawn(location, ArmorStand.class, entity -> {
+            armorStand = CosmeticEntitySpawner.spawnLiving(location, ArmorStand.class, entity -> {
                 entity.setVisible(false);
                 entity.setSmall(true);
                 entity.setGravity(false);
-                MetadataUtil.setCustomEntity(entity);
             });
+
+            if (armorStand == null) {
+                return InteractionResult.fail();
+            }
             setGuardianTarget(nmsEntity, armorStand);
         }
         return InteractionResult.success();

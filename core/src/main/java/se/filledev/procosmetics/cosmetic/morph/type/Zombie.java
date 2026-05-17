@@ -30,8 +30,8 @@ import se.filledev.procosmetics.api.cosmetic.CosmeticContext;
 import se.filledev.procosmetics.api.cosmetic.morph.MorphBehavior;
 import se.filledev.procosmetics.api.cosmetic.morph.MorphType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
+import se.filledev.procosmetics.util.CosmeticEntitySpawner;
 import se.filledev.procosmetics.util.MathUtil;
-import se.filledev.procosmetics.util.MetadataUtil;
 import se.filledev.procosmetics.util.Scheduler;
 
 public class Zombie implements MorphBehavior, Listener {
@@ -55,14 +55,16 @@ public class Zombie implements MorphBehavior, Listener {
         if (event.getAction() == Action.LEFT_CLICK_AIR && zombie == null) {
             Location location = player.getLocation();
 
-            zombie = location.getWorld().spawn(location, org.bukkit.entity.Zombie.class,
+            zombie = CosmeticEntitySpawner.spawnLiving(location, org.bukkit.entity.Zombie.class,
                     entity -> {
                         entity.setBaby();
                         entity.setVelocity(location.getDirection().setY(0.6d));
-
-                        MetadataUtil.setCustomEntity(entity);
                     }
             );
+
+            if (zombie == null) {
+                return InteractionResult.fail();
+            }
 
             for (Player targetPlayer : MathUtil.getClosestPlayersFromLocation(location, RANGE)) {
                 if (targetPlayer == player) {

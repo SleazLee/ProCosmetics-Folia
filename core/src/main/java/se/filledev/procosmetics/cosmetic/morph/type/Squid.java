@@ -38,16 +38,15 @@ import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.MetadataUtil;
 import se.filledev.procosmetics.util.item.ItemBuilderImpl;
 
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Squid implements MorphBehavior {
 
     private final static ItemStack ITEMSTACK = new ItemStack(Material.INK_SAC);
     private static final Vector UP_FORCE = new Vector(0.0d, 0.35d, 0.0d);
     private static final PotionEffect POTION_EFFECT = new PotionEffect(PotionEffectType.BLINDNESS, 60, 0);
-    private final List<Item> items = new ArrayList<>();
+    private final List<Item> items = new CopyOnWriteArrayList<>();
     private int ticks;
     private boolean shooting;
 
@@ -66,7 +65,7 @@ public class Squid implements MorphBehavior {
             shooting = true;
             Player player = context.getPlayer();
             player.getWorld().playSound(player, Sound.ENTITY_SQUID_SQUIRT, 1.0f, 2.0f);
-            Scheduler.runLater(player.getLocation(), this::clearItems, 140L);
+            Scheduler.runLater(player, this::clearItems, 140L);
             return InteractionResult.success();
         }
         return InteractionResult.noAction();
@@ -76,44 +75,16 @@ public class Squid implements MorphBehavior {
 
     @Override
     public void onUpdate(CosmeticContext<MorphType> context, NMSEntity nmsEntity) {
-        Iterator<Item> iterator = items.iterator();
+        Player player = context.getPlayer();
 
-        while (iterator.hasNext()) {
-            Item item = iterator.next();
-
-            if (item.isOnGround()) {
-                item.remove();
-                iterator.remove();
-            } else {
-                item.getLocation(itemLocation);
-                itemLocation.getWorld().spawnParticle(Particle.SPLASH, itemLocation, 0);
-
-                Player hitPlayer = MathUtil.getClosestPlayerFromLocation(itemLocation, 1.0d);
-                Player player = context.getPlayer();
-
-                if (hitPlayer != null && hitPlayer != player) {
-                    hitPlayer.addPotionEffect(POTION_EFFECT);
-                    hitPlayer.getWorld().spawnParticle(Particle.SPLASH,
-                            hitPlayer.getEyeLocation(),
-                            10,
-                            0.3d,
-                            0.4d,
-                            0.3d,
-                            0.1d
-                    );
-                    MathUtil.pushEntity(hitPlayer, itemLocation, 0.05d, 0.0d);
-
-                    item.remove();
-                    iterator.remove();
-                }
-            }
+        for (Item item : List.copyOf(items)) {
+            Scheduler.runOwned(item, null, () -> updateInkItem(player, item));
         }
 
         if (shooting) {
             if (ticks++ > 50) {
                 shooting = false;
             }
-            Player player = context.getPlayer();
             player.getLocation(itemLocation);
 
             items.add(player.getWorld().dropItem(
@@ -146,10 +117,91 @@ public class Squid implements MorphBehavior {
         clearItems();
     }
 
-    private void clearItems() {
-        for (Item item : items) {
+    /**
+     * Updates one thrown ink item from that item's owning region.
+     *
+     * <p>The Squid morph leaves item projectiles in the world while the owner can keep moving. Folia
+     * item ground checks, location reads, particles, and removal are therefore routed through the
+     * item scheduler.</p>
+     *
+     * @param owner the morph owner
+     * @param item the ink item being updated
+     */
+    private void updateInkItem(Player owner, Item item) {
+        if (!items.contains(item) || !item.isValid()) {
+            items.remove(item);
+            return;
+        }
+
+        if (item.isOnGround()) {
+            removeInkItem(item);
+            return;
+        }
+        Location location = item.getLocation();
+        location.getWorld().spawnParticle(Particle.SPLASH, location, 0);
+
+        Player hitPlayer = MathUtil.getClosestPlayerFromLocation(location, 1.0d);
+
+        if (hitPlayer != null && hitPlayer != owner) {
+            applyInkHitFromPlayerRegion(hitPlayer, location.clone());
+            removeInkItem(item);
+        }
+    }
+
+    /**
+     * Applies the ink hit from the target player's owning region.
+     *
+     * <p>The item detects a nearby player from its region, but blindness, knockback, and eye
+     * particles belong to the target player.</p>
+     *
+     * @param hitPlayer the player hit by ink
+     * @param sourceLocation the item location used for knockback direction
+     */
+    private void applyInkHitFromPlayerRegion(Player hitPlayer, Location sourceLocation) {
+        Scheduler.run(hitPlayer, () -> {
+            hitPlayer.addPotionEffect(POTION_EFFECT);
+            hitPlayer.getWorld().spawnParticle(Particle.SPLASH,
+                    hitPlayer.getEyeLocation(),
+                    10,
+                    0.3d,
+                    0.4d,
+                    0.3d,
+                    0.1d
+            );
+            MathUtil.pushEntity(hitPlayer, sourceLocation, 0.05d, 0.0d);
+        });
+    }
+
+    /**
+     * Removes a tracked ink item from its owning region.
+     *
+     * <p>Item removal is kept on the item scheduler for both hit and ground cleanup.</p>
+     *
+     * @param item the ink item to remove
+     */
+    private void removeInkItem(Item item) {
+        items.remove(item);
+        if (item.isValid()) {
             item.remove();
         }
+    }
+
+    /**
+     * Clears all retained ink items through their entity schedulers.
+     *
+     * <p>The delayed clear task is player-owned, but individual ink items may have crossed into
+     * another Folia region before cleanup.</p>
+     */
+    private void clearItems() {
+        List<Item> spawnedItems = List.copyOf(items);
         items.clear();
+
+        for (Item item : spawnedItems) {
+            Scheduler.runOwned(item, null, () -> {
+                if (item.isValid()) {
+                    item.remove();
+                }
+            });
+        }
     }
 }

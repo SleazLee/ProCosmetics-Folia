@@ -172,7 +172,20 @@ public class MorphImpl extends CosmeticImpl<MorphType, MorphBehavior> implements
 
     protected void addCooldown(double time) {
         cooldown = true;
-        Scheduler.runLater(player.getLocation(), () -> {
+        scheduleCooldownReadyMessage(time);
+    }
+
+    /**
+     * Sends the morph cooldown-ready feedback from the player's owning region.
+     *
+     * <p>Morph ability cooldowns can expire after the player has crossed a Folia region boundary.
+     * Scheduling against the player keeps the equipped check, action bar, and ready sound on the
+     * region that currently owns that player.</p>
+     *
+     * @param time cooldown duration in seconds
+     */
+    private void scheduleCooldownReadyMessage(double time) {
+        Scheduler.runLater(player, () -> {
             if (isEquipped()) {
                 user.sendActionBar(user.translate(
                         "cosmetic.morphs.ability.cooldown.ready",

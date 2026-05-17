@@ -38,9 +38,8 @@ import se.filledev.procosmetics.util.MetadataUtil;
 import se.filledev.procosmetics.util.Scheduler;
 import se.filledev.procosmetics.util.item.ItemBuilderImpl;
 
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Spider implements MorphBehavior {
 
@@ -49,7 +48,7 @@ public class Spider implements MorphBehavior {
     private static final PotionEffect POTION_EFFECT = new PotionEffect(PotionEffectType.SLOWNESS, 80, 2);
 
     private final Location location = new Location(null, 0.0d, 0.0d, 0.0d);
-    private final List<Item> items = new ArrayList<>();
+    private final List<Item> items = new CopyOnWriteArrayList<>();
     private int tick;
     private boolean activated;
 
@@ -69,7 +68,7 @@ public class Spider implements MorphBehavior {
         if (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK) {
             Player player = context.getPlayer();
 
-            Scheduler.runLater(player.getLocation(), this::clearItems, 140L);
+            Scheduler.runLater(player, this::clearItems, 140L);
             player.playSound(player, Sound.ENTITY_SPIDER_HURT, 1.0f, 1.0f);
 
             activated = true;
@@ -86,44 +85,8 @@ public class Spider implements MorphBehavior {
         Player player = context.getPlayer();
 
         if (activated) {
-            Iterator<Item> iterator = items.iterator();
-
-            while (iterator.hasNext()) {
-                Item item = iterator.next();
-                item.getLocation(location);
-
-                if (item.isOnGround()) {
-                    location.getWorld().spawnParticle(Particle.ITEM,
-                            item.getLocation().add(0.0d, 0.3d, 0.0d),
-                            5,
-                            0.3d,
-                            0.1d,
-                            0.3d,
-                            0.1d,
-                            ITEMSTACK
-                    );
-                    item.remove();
-                    iterator.remove();
-                } else {
-                    Player hitPlayer = MathUtil.getClosestPlayerFromLocation(location, 1.0d);
-
-                    if (hitPlayer != null && hitPlayer != player) {
-                        hitPlayer.addPotionEffect(POTION_EFFECT);
-                        MathUtil.pushEntity(hitPlayer, location, 0.05d, 0.0d);
-
-                        location.getWorld().spawnParticle(Particle.ITEM,
-                                hitPlayer.getLocation().add(0.0d, 1.2d, 0.0d),
-                                20,
-                                0.3d,
-                                0.3d,
-                                0.3d,
-                                0.1d,
-                                ITEMSTACK
-                        );
-                        item.remove();
-                        iterator.remove();
-                    }
-                }
+            for (Item item : List.copyOf(items)) {
+                Scheduler.runOwned(item, null, () -> updateWebItem(player, item));
             }
 
             if (tick++ < 50) {
@@ -149,10 +112,101 @@ public class Spider implements MorphBehavior {
         clearItems();
     }
 
-    private void clearItems() {
-        for (Item item : items) {
+    /**
+     * Updates one thrown web item from that item's owning region.
+     *
+     * <p>The Spider morph can leave web items behind while the player keeps moving. Folia requires
+     * item location, ground checks, and removal to happen on the item scheduler rather than the
+     * player's current region.</p>
+     *
+     * @param owner the morph owner
+     * @param item the web item being updated
+     */
+    private void updateWebItem(Player owner, Item item) {
+        if (!items.contains(item) || !item.isValid()) {
+            items.remove(item);
+            return;
+        }
+        Location itemLocation = item.getLocation();
+
+        if (item.isOnGround()) {
+            itemLocation.getWorld().spawnParticle(Particle.ITEM,
+                    itemLocation.clone().add(0.0d, 0.3d, 0.0d),
+                    5,
+                    0.3d,
+                    0.1d,
+                    0.3d,
+                    0.1d,
+                    ITEMSTACK
+            );
+            removeWebItem(item);
+            return;
+        }
+        Player hitPlayer = MathUtil.getClosestPlayerFromLocation(itemLocation, 1.0d);
+
+        if (hitPlayer != null && hitPlayer != owner) {
+            applyWebHitFromPlayerRegion(hitPlayer, itemLocation.clone());
+            removeWebItem(item);
+        }
+    }
+
+    /**
+     * Applies the web hit from the target player's owning region.
+     *
+     * <p>The item detects the hit from its region, but potion effects, knockback, and hit particles
+     * target player state. Dispatching the hit keeps the morph ability safe at region boundaries.</p>
+     *
+     * @param hitPlayer the player hit by the web item
+     * @param sourceLocation the item location used for knockback direction
+     */
+    private void applyWebHitFromPlayerRegion(Player hitPlayer, Location sourceLocation) {
+        Scheduler.run(hitPlayer, () -> {
+            hitPlayer.addPotionEffect(POTION_EFFECT);
+            MathUtil.pushEntity(hitPlayer, sourceLocation, 0.05d, 0.0d);
+            Location hitLocation = hitPlayer.getLocation().add(0.0d, 1.2d, 0.0d);
+            hitLocation.getWorld().spawnParticle(Particle.ITEM,
+                    hitLocation,
+                    20,
+                    0.3d,
+                    0.3d,
+                    0.3d,
+                    0.1d,
+                    ITEMSTACK
+            );
+        });
+    }
+
+    /**
+     * Removes a tracked web item from its owning region.
+     *
+     * <p>Both natural expiry and unequip cleanup use this path so retained item entities are never
+     * removed from the owner's current Folia region by accident.</p>
+     *
+     * @param item the web item to remove
+     */
+    private void removeWebItem(Item item) {
+        items.remove(item);
+        if (item.isValid()) {
             item.remove();
         }
+    }
+
+    /**
+     * Clears all retained web items through their entity schedulers.
+     *
+     * <p>The delayed clear task is player-owned, but the items may have landed elsewhere. Each item
+     * owns its own final removal.</p>
+     */
+    private void clearItems() {
+        List<Item> spawnedItems = List.copyOf(items);
         items.clear();
+
+        for (Item item : spawnedItems) {
+            Scheduler.runOwned(item, null, () -> {
+                if (item.isValid()) {
+                    item.remove();
+                }
+            });
+        }
     }
 }

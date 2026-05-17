@@ -45,6 +45,7 @@ public class HotAirBalloon implements GadgetBehavior {
     private ParentBlockDisplayStructure structure;
     private Location seatLocation;
     private NMSEntity seat;
+    private Display seatEntity;
     private double speed;
 
     @Override
@@ -61,7 +62,7 @@ public class HotAirBalloon implements GadgetBehavior {
 
         seatLocation = center.clone().add(0.0d, HEIGHT_OFFSET, 0.0d);
 
-        Display seatEntity = seatLocation.getWorld().spawn(seatLocation, BlockDisplay.class, entity -> {
+        seatEntity = seatLocation.getWorld().spawn(seatLocation, BlockDisplay.class, entity -> {
             entity.setTeleportDuration(2);
             MetadataUtil.setCustomEntity(entity);
         });
@@ -84,40 +85,84 @@ public class HotAirBalloon implements GadgetBehavior {
         if (seat == null) {
             return;
         }
+        NMSEntity currentSeat = seat;
+        Display currentSeatEntity = seatEntity;
+        Scheduler.runOwned(currentSeatEntity, seatLocation, () -> updateBalloon(currentSeat));
+    }
+
+    /**
+     * Moves the balloon seat and virtual structure from the seat's owning region.
+     *
+     * <p>The balloon can keep rising after the owner crosses into another Folia region. Seat
+     * movement, structure tracker positions, and smoke particles are tied to the moving seat, so the
+     * update is routed through the seat entity instead of the player update region.</p>
+     *
+     * @param currentSeat the active seat captured before the scheduler hop
+     */
+    private void updateBalloon(NMSEntity currentSeat) {
+        if (seat != currentSeat || seatLocation == null) {
+            return;
+        }
         if (speed < MAX_SPEED) {
             speed += ACCELERATION;
         }
-        seat.setPositionRotation(seatLocation.add(0.0d, speed, 0.0d));
+        seatLocation.add(0.0d, speed, 0.0d);
+        currentSeat.setPositionRotation(seatLocation);
 
         // Set this to make sure the tracker updates its location and also prevent a spawn-in flicker
         for (NMSEntity entity : structure.getPlacedEntries()) {
             entity.setPreviousLocation(entity.getPreviousLocation().add(0.0d, speed, 0.0d));
         }
-        seatLocation.add(0.0d, 3.0d, 0.0d);
-        seatLocation.getWorld().spawnParticle(Particle.LARGE_SMOKE,
-                seatLocation,
+        Location smokeLocation = seatLocation.clone().add(0.0d, 3.0d, 0.0d);
+        smokeLocation.getWorld().spawnParticle(Particle.LARGE_SMOKE,
+                smokeLocation,
                 0,
                 0.0d,
                 speed,
                 0.0d,
                 2.0d
         );
-        seatLocation.subtract(0.0d, 3.0d, 0.0d);
     }
 
     @Override
     public void onUnequip(CosmeticContext<GadgetType> context) {
+        NMSEntity currentSeat = seat;
+        Display currentSeatEntity = seatEntity;
+        Location cleanupLocation = seatLocation != null ? seatLocation.clone() : null;
+
+        seat = null;
+        seatEntity = null;
+        seatLocation = null;
+        speed = 0.0d;
+
+        if (Scheduler.isFolia() && currentSeatEntity != null) {
+            Scheduler.runOwned(currentSeatEntity, cleanupLocation, () -> cleanupBalloon(currentSeat, currentSeatEntity, cleanupLocation));
+            return;
+        }
+        cleanupBalloon(currentSeat, currentSeatEntity, cleanupLocation);
+    }
+
+    /**
+     * Removes the balloon structure and seat from the seat's final region.
+     *
+     * <p>Timed unequip can fire after the owner has left the balloon region. Running cleanup beside
+     * the seat keeps the explosion effect, virtual structure tracker, and Bukkit display removal
+     * region-correct on Folia.</p>
+     *
+     * @param currentSeat the seat wrapper active when cleanup was requested
+     * @param currentSeatEntity the Bukkit display seat to remove
+     * @param cleanupLocation the last known seat location for effects
+     */
+    private void cleanupBalloon(NMSEntity currentSeat, Display currentSeatEntity, Location cleanupLocation) {
         structure.remove();
 
-        if (seatLocation != null) {
-            seatLocation.getWorld().playSound(seatLocation, Sound.ENTITY_DRAGON_FIREBALL_EXPLODE, 0.3f, 1.0f);
-            seatLocation.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, seatLocation.add(0.0d, 5.0d, 0.0d), 1);
-            seatLocation = null;
+        if (cleanupLocation != null) {
+            cleanupLocation.getWorld().playSound(cleanupLocation, Sound.ENTITY_DRAGON_FIREBALL_EXPLODE, 0.3f, 1.0f);
+            cleanupLocation.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, cleanupLocation.add(0.0d, 5.0d, 0.0d), 1);
         }
 
-        if (seat != null) {
-            seat.getBukkitEntity().remove();
-            seat = null;
+        if (currentSeat != null && currentSeatEntity != null) {
+            currentSeatEntity.remove();
         }
     }
 

@@ -47,6 +47,7 @@ import se.filledev.procosmetics.util.item.ItemBuilderImpl;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class CoinPartyBomb implements GadgetBehavior, Listener {
 
@@ -65,7 +66,7 @@ public class CoinPartyBomb implements GadgetBehavior, Listener {
     private static final long EXTRA_TIME = 400L;
     private static final int DROP_INTERVAL = 4;
 
-    private final List<Item> items = new ArrayList<>();
+    private final List<Item> items = new CopyOnWriteArrayList<>();
     private NMSEntity nmsEntity;
     private final Location location = new Location(null, 0.0d, 0.0d, 0.0d);
     private final Location center = new Location(null, 0.0d, 0.0d, 0.0d);
@@ -101,6 +102,7 @@ public class CoinPartyBomb implements GadgetBehavior, Listener {
         location.setPitch(45.0f); // tilt slightly down
 
         nmsEntity = context.getPlugin().getNMSManager().createEntity(player.getWorld(), EntityType.BLOCK_DISPLAY);
+        positionBlockBeforeBukkitSetup(nmsEntity, center);
 
         if (nmsEntity.getBukkitEntity() instanceof BlockDisplay blockDisplay) {
             blockDisplay.setBlock(GOLD_ITEM.getType().createBlockData());
@@ -112,7 +114,6 @@ public class CoinPartyBomb implements GadgetBehavior, Listener {
             blockDisplay.setTransformationMatrix(transformationMatrix);
             blockDisplay.setTeleportDuration(2);
         }
-        nmsEntity.setPositionRotation(center);
         nmsEntity.getTracker().startTracking();
 
         Scheduler.runLater(center, () -> {
@@ -131,6 +132,26 @@ public class CoinPartyBomb implements GadgetBehavior, Listener {
 
     @Override
     public void onUpdate(CosmeticContext<GadgetType> context) {
+        if (nmsEntity == null) {
+            return;
+        }
+        if (Scheduler.isFolia()) {
+            Scheduler.run(center, () -> updateBomb(context));
+            return;
+        }
+        updateBomb(context);
+    }
+
+    /**
+     * Updates the bomb display and coin drops from the bomb's anchored region.
+     *
+     * <p>The bomb itself is static, while the base gadget tick follows the player. Running the
+     * display movement and item spawning at the original center prevents player region changes
+     * from touching the bomb's virtual display state.</p>
+     *
+     * @param context the active gadget context
+     */
+    private void updateBomb(CosmeticContext<GadgetType> context) {
         if (nmsEntity == null) {
             return;
         }
@@ -186,11 +207,44 @@ public class CoinPartyBomb implements GadgetBehavior, Listener {
     }
 
     private void despawnItems() {
-        for (Item item : items) {
-            location.getWorld().spawnParticle(Particle.LARGE_SMOKE, item.getLocation(location), 0);
-            item.remove();
-        }
+        List<Item> itemsToRemove = new ArrayList<>(items);
         items.clear();
+
+        for (Item item : itemsToRemove) {
+            Scheduler.runOwned(item, center, () -> removeItemWithSmoke(item));
+        }
+    }
+
+    /**
+     * Positions the virtual bomb display before Bukkit display setters run.
+     *
+     * <p>Fresh NMS display helpers start at the world's default coordinates. Folia validates
+     * {@link BlockDisplay#setBlock(org.bukkit.block.data.BlockData)} and transformation setters
+     * against the display's current region, so the helper must be moved to the bomb center before
+     * the Bukkit wrapper is configured.</p>
+     *
+     * @param entity the bomb display entity
+     * @param location the bomb center location
+     */
+    private void positionBlockBeforeBukkitSetup(NMSEntity entity, Location location) {
+        entity.setPositionRotation(location);
+    }
+
+    /**
+     * Removes a dropped coin item from the item entity's owning region.
+     *
+     * <p>Coins can be launched away from the bomb center. Delayed cleanup therefore dispatches
+     * each item to its own scheduler before reading its location or removing it.</p>
+     *
+     * @param item the coin item to remove
+     */
+    private void removeItemWithSmoke(Item item) {
+        if (!item.isValid()) {
+            return;
+        }
+        Location itemLocation = item.getLocation();
+        itemLocation.getWorld().spawnParticle(Particle.LARGE_SMOKE, itemLocation, 0);
+        item.remove();
     }
 
     @Override

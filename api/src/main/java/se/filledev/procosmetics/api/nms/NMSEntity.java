@@ -517,6 +517,12 @@ public interface NMSEntity {
     void removePathfinder();
 
     /**
+     * Stops any active navigation path for this entity.
+     * This is useful after teleports or before despawn to avoid stale pathing state.
+     */
+    void stopNavigation();
+
+    /**
      * Gets the underlying NMS entity object.
      * This returns the version-specific Minecraft server entity instance.
      *

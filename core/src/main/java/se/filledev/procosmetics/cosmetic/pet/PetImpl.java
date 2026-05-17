@@ -38,8 +38,9 @@ import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.cosmetic.CosmeticImpl;
 import se.filledev.procosmetics.nms.NMSEntityImpl;
+import se.filledev.procosmetics.util.CosmeticEntitySpawner;
 import se.filledev.procosmetics.util.MathUtil;
-import se.filledev.procosmetics.util.MetadataUtil;
+import se.filledev.procosmetics.util.Scheduler;
 
 public class PetImpl extends CosmeticImpl<PetType, PetBehavior> implements Pet {
 
@@ -55,20 +56,28 @@ public class PetImpl extends CosmeticImpl<PetType, PetBehavior> implements Pet {
 
     @Override
     protected void onEquip() {
-        spawn();
+        if (!spawnAt(player.getLocation())) {
+            abortEquip();
+            return;
+        }
         runTaskTimer(plugin, 0L, 10L);
     }
 
     @Override
     protected void onUpdate() {
-        if (user.isMoving()) {
-            nmsEntity.follow(player);
-        }
+        Entity currentEntity = entity;
+        NMSEntity currentNMSEntity = nmsEntity;
 
-        if (cosmeticType.getTossItem() != null) {
-            dropDespawningItem(cosmeticType.getTossItem());
+        if (currentNMSEntity == null || currentEntity == null || !currentEntity.isValid()) {
+            return;
         }
-        behavior.onUpdate(this, entity);
+        boolean moving = user.isMoving();
+
+        if (Scheduler.isFolia()) {
+            Scheduler.run(currentEntity, () -> handleEntityThreadUpdate(currentEntity, currentNMSEntity, moving));
+            return;
+        }
+        handleEntityThreadUpdate(currentEntity, currentNMSEntity, moving);
     }
 
     @Override
@@ -83,11 +92,28 @@ public class PetImpl extends CosmeticImpl<PetType, PetBehavior> implements Pet {
 
     @Override
     public void spawn(Location location) {
+        if (!spawnAt(location) && isEquipped()) {
+            unequip(false, false);
+        }
+    }
+
+    /**
+     * Spawns the pet through the shared cosmetic living-entity spawn path.
+     *
+     * <p>Pets are user-facing equip state, so a blocked spawn must be reported back
+     * to the base equip flow as a failure instead of allowing a "success" message
+     * and database save for a pet that does not exist. The shared spawner also tags
+     * the entity before protection plugins finish handling the spawn event.</p>
+     *
+     * @param location the location where the pet should appear
+     * @return {@code true} when the pet entity and NMS wrapper were created successfully
+     */
+    private boolean spawnAt(Location location) {
         this.location = location.clone();
 
         despawn();
 
-        entity = location.getWorld().spawn(location, cosmeticType.getEntityType().getEntityClass(), entity -> {
+        entity = CosmeticEntitySpawner.spawnLiving(location, cosmeticType.getEntityType(), entity -> {
             Component nameTag = user.translate(
                     "cosmetic.pets.name_tag",
                     Placeholder.unparsed("player", player.getName()),
@@ -113,44 +139,68 @@ public class PetImpl extends CosmeticImpl<PetType, PetBehavior> implements Pet {
                 }
             }
             nmsEntity = plugin.getNMSManager().entityToNMSEntity(entity);
-            MetadataUtil.setCustomEntity(entity);
             behavior.onSetupEntity(this, entity);
         });
 
         // Ensure that the entity has been spawned and was not blocked by other plugins
-        if (!entity.isValid()) {
-            unequip(false, false);
-            return;
+        if (entity == null || nmsEntity == null || !entity.isValid()) {
+            nmsEntity = null;
+            entity = null;
+            return false;
         }
         Sound spawnSound = cosmeticType.getSpawnSound();
         if (spawnSound != null) {
             entity.getWorld().playSound(location, spawnSound, 0.5f, 1.0f);
         }
         nmsEntity.removePathfinder();
+        nmsEntity.stopNavigation();
 
         CosmeticEntitySpawnEvent event = new CosmeticEntitySpawnEvent(plugin, user, player, entity);
         plugin.getServer().getPluginManager().callEvent(event);
+        return true;
     }
 
     private void despawn() {
-        if (nmsEntity != null) {
-            nmsEntity = null;
-        }
-        if (entity != null) {
-            entity.remove();
-            entity = null;
+        NMSEntity currentNMSEntity = nmsEntity;
+        nmsEntity = null;
+        Entity currentEntity = entity;
+        entity = null;
+
+        if (currentEntity != null) {
+            Scheduler.run(currentEntity, () -> {
+                if (currentNMSEntity != null) {
+                    currentNMSEntity.stopNavigation();
+                }
+                if (currentEntity.isValid()) {
+                    currentEntity.remove();
+                }
+            });
         }
     }
 
-    protected void dropDespawningItem(ItemStack itemStack) {
-        NMSEntityImpl nmsEntity = plugin.getNMSManager().createEntity(entity.getWorld(), EntityType.ITEM);
+    private void handleEntityThreadUpdate(Entity currentEntity, NMSEntity currentNMSEntity, boolean moving) {
+        if (entity != currentEntity || nmsEntity != currentNMSEntity || !currentEntity.isValid()) {
+            return;
+        }
+        if (moving) {
+            currentNMSEntity.follow(player);
+        }
+
+        if (cosmeticType.getTossItem() != null) {
+            dropDespawningItem(currentEntity, cosmeticType.getTossItem());
+        }
+        behavior.onUpdate(this, currentEntity);
+    }
+
+    protected void dropDespawningItem(Entity sourceEntity, ItemStack itemStack) {
+        NMSEntityImpl nmsEntity = plugin.getNMSManager().createEntity(sourceEntity.getWorld(), EntityType.ITEM);
         nmsEntity.setEntityItemStack(itemStack);
         nmsEntity.setVelocity(
                 MathUtil.randomRange(-0.5d, 0.5d),
                 MathUtil.randomRange(-0.1d, 0.3d),
                 MathUtil.randomRange(-0.5d, 0.5d)
         );
-        nmsEntity.setPositionRotation(entity.getLocation(location).add(0.0d, 0.2d, 0.0d));
+        nmsEntity.setPositionRotation(sourceEntity.getLocation(location).add(0.0d, 0.2d, 0.0d));
         nmsEntity.getTracker().startTracking();
         nmsEntity.getTracker().destroyAfter(70);
     }

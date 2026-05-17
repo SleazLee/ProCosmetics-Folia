@@ -42,6 +42,7 @@ import se.filledev.procosmetics.cosmetic.registry.CategoryRegistriesImpl;
 import se.filledev.procosmetics.cosmetic.registry.CosmeticRarityRegistryImpl;
 import se.filledev.procosmetics.economy.EconomyManagerImpl;
 import se.filledev.procosmetics.hook.bmessentials.BMEParticleAfkBridge;
+import se.filledev.procosmetics.hook.grim.GrimExemptionManager;
 import se.filledev.procosmetics.listener.*;
 import se.filledev.procosmetics.listener.hook.cmi.CMIVanishListener;
 import se.filledev.procosmetics.listener.hook.essentials.EssentialsVanishListener;
@@ -98,6 +99,7 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
     private Database database;
     private WorldGuardManager worldGuardManager;
     private BMEParticleAfkBridge bmeParticleAfkBridge;
+    private GrimExemptionManager grimExemptionManager;
 
     @Override
     public void onLoad() {
@@ -129,6 +131,7 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
         economyManager = new EconomyManagerImpl(this);
         placeholderManager = new PlaceholderManager(this);
         commandBase = new CommandBase(this);
+        grimExemptionManager = new GrimExemptionManager(this);
 
         initializeRedis();
         initializeDatabase();
@@ -194,6 +197,9 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
         }
         if (bmeParticleAfkBridge != null) {
             bmeParticleAfkBridge.shutdown();
+        }
+        if (grimExemptionManager != null) {
+            grimExemptionManager.shutdown();
         }
 
         for (User user : userManager.getAllConnected()) {
@@ -268,6 +274,9 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
 
         if (worldGuardManager != null) {
             worldGuardManager.register(this);
+        }
+        if (grimExemptionManager != null) {
+            grimExemptionManager.hook();
         }
     }
 
@@ -428,5 +437,18 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
 
     public BMEParticleAfkBridge getBmeParticleAfkBridge() {
         return bmeParticleAfkBridge;
+    }
+
+    /**
+     * Gets the GrimAC exemption bridge used by cosmetics that move players.
+     *
+     * <p>The bridge lives on the plugin because gadgets, mounts, and shared
+     * movement helpers all need a single source of truth for the short
+     * anti-cheat exemption windows they create.</p>
+     *
+     * @return the GrimAC exemption manager
+     */
+    public GrimExemptionManager getGrimExemptionManager() {
+        return grimExemptionManager;
     }
 }

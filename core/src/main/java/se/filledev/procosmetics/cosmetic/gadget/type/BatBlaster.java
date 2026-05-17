@@ -29,15 +29,15 @@ import org.bukkit.util.Vector;
 import se.filledev.procosmetics.api.cosmetic.CosmeticContext;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetBehavior;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
+import se.filledev.procosmetics.util.CosmeticEntitySpawner;
 import se.filledev.procosmetics.util.MathUtil;
-import se.filledev.procosmetics.util.MetadataUtil;
 import se.filledev.procosmetics.util.Scheduler;
 
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class BatBlaster implements GadgetBehavior {
 
@@ -45,7 +45,7 @@ public class BatBlaster implements GadgetBehavior {
     private static final double VERTICAL_SPREAD = 0.1d;
     private static final double HORIZONTAL_SPREAD = 0.3d;
 
-    private final List<Bat> bats = new ArrayList<>();
+    private final List<Bat> bats = new CopyOnWriteArrayList<>();
     private Vector direction;
     private Location location;
     private final Vector velocity = new Vector();
@@ -60,7 +60,15 @@ public class BatBlaster implements GadgetBehavior {
         direction = location.getDirection().multiply(0.5d);
 
         for (int i = 0; i < BAT_AMOUNT; i++) {
-            bats.add(location.getWorld().spawn(location, Bat.class, MetadataUtil::setCustomEntity));
+            Bat bat = CosmeticEntitySpawner.spawnLiving(location, Bat.class, null);
+
+            if (bat != null) {
+                bats.add(bat);
+            }
+        }
+
+        if (bats.isEmpty()) {
+            return InteractionResult.fail();
         }
         Scheduler.runLater(location, () -> onUnequip(context), context.getType().getDurationTicks());
         return InteractionResult.success();
@@ -71,38 +79,72 @@ public class BatBlaster implements GadgetBehavior {
         if (bats.isEmpty()) {
             return;
         }
-        Iterator<Bat> iterator = bats.iterator();
-
-        while (iterator.hasNext()) {
-            Entity entity = iterator.next();
-
-            velocity.setX(direction.getX() + MathUtil.randomRange(-HORIZONTAL_SPREAD, HORIZONTAL_SPREAD));
-            velocity.setY(direction.getY() + MathUtil.randomRange(-VERTICAL_SPREAD, VERTICAL_SPREAD));
-            velocity.setZ(direction.getZ() + MathUtil.randomRange(-HORIZONTAL_SPREAD, HORIZONTAL_SPREAD));
-            entity.setVelocity(velocity);
-
-            Player player = context.getPlayer();
-            entity.getLocation(location);
-
-            for (Player hitPlayer : MathUtil.getClosestPlayersFromLocation(location, 1.5d)) {
-                if (hitPlayer != player && hitPlayer.isValid()) {
-                    MathUtil.pushEntity(hitPlayer, location, 0.3d, 0.2d);
-                    location.getWorld().spawnParticle(Particle.LARGE_SMOKE, location, 0);
-                    entity.getWorld().playSound(location, Sound.ENTITY_BAT_HURT, 0.3f, 1.0f);
-                    entity.remove();
-                    iterator.remove();
-                }
-            }
+        for (Bat bat : bats) {
+            Scheduler.runOwned(bat, location, () -> updateBat(context, bat));
         }
     }
 
     @Override
     public void onUnequip(CosmeticContext<GadgetType> context) {
-        for (Entity entity : bats) {
-            location.getWorld().spawnParticle(Particle.LARGE_SMOKE, entity.getLocation(location), 0);
-            entity.remove();
-        }
+        List<Bat> batsToRemove = new ArrayList<>(bats);
         bats.clear();
+
+        for (Bat bat : batsToRemove) {
+            Scheduler.runOwned(bat, location, () -> removeBatWithSmoke(bat));
+        }
+    }
+
+    /**
+     * Updates a moving bat from the bat's owning region.
+     *
+     * <p>The cosmetic timer follows the player on Folia, but bats can fly into a neighboring
+     * region before the next tick. Running velocity, nearby-entity checks, and removal from
+     * the bat scheduler prevents those moving entities from being touched from the player's
+     * new region.</p>
+     *
+     * @param context the active gadget context
+     * @param bat the bat to update
+     */
+    private void updateBat(CosmeticContext<GadgetType> context, Bat bat) {
+        if (!bats.contains(bat) || !bat.isValid()) {
+            return;
+        }
+        Vector batVelocity = velocity.clone();
+        batVelocity.setX(direction.getX() + MathUtil.randomRange(-HORIZONTAL_SPREAD, HORIZONTAL_SPREAD));
+        batVelocity.setY(direction.getY() + MathUtil.randomRange(-VERTICAL_SPREAD, VERTICAL_SPREAD));
+        batVelocity.setZ(direction.getZ() + MathUtil.randomRange(-HORIZONTAL_SPREAD, HORIZONTAL_SPREAD));
+        bat.setVelocity(batVelocity);
+
+        Location batLocation = bat.getLocation();
+
+        for (Entity nearby : bat.getNearbyEntities(1.5d, 1.5d, 1.5d)) {
+            if (nearby instanceof Player hitPlayer && hitPlayer != context.getPlayer()) {
+                Location pushSource = batLocation.clone();
+                Scheduler.run(hitPlayer, () -> MathUtil.pushEntity(hitPlayer, pushSource, 0.3d, 0.2d));
+                batLocation.getWorld().spawnParticle(Particle.LARGE_SMOKE, batLocation, 0);
+                bat.getWorld().playSound(batLocation, Sound.ENTITY_BAT_HURT, 0.3f, 1.0f);
+                bats.remove(bat);
+                bat.remove();
+                return;
+            }
+        }
+    }
+
+    /**
+     * Removes a bat from its owning region while playing the despawn effect.
+     *
+     * <p>Cleanup can run after a bat has crossed a Folia region boundary. Reading its
+     * location and removing it from the entity scheduler keeps delayed cleanup safe.</p>
+     *
+     * @param bat the bat to remove
+     */
+    private void removeBatWithSmoke(Bat bat) {
+        if (!bat.isValid()) {
+            return;
+        }
+        Location batLocation = bat.getLocation();
+        batLocation.getWorld().spawnParticle(Particle.LARGE_SMOKE, batLocation, 0);
+        bat.remove();
     }
 
     @Override

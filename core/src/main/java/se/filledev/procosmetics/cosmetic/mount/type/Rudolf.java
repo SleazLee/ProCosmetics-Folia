@@ -63,17 +63,36 @@ public class Rudolf implements MountBehavior {
 
             for (int i = 0; i < 2; i++) {
                 NMSEntity horn = context.getPlugin().getNMSManager().createEntity(entity.getWorld(), EntityType.ARMOR_STAND, tracker);
+
+                if (horn == null) {
+                    continue;
+                }
+                positionHornBeforeArmorStandSetup(horn, location);
                 if (horn.getBukkitEntity() instanceof ArmorStand armorStand) {
                     armorStand.setInvisible(true);
                     armorStand.setArms(false);
                     armorStand.setMarker(false);
                 }
                 horn.setHelmet(DEAD_BUSH_ITEM);
-                horn.setPositionRotation(location);
                 horn.setHeadPose(0.0f, (float) Math.toDegrees(-1.0d + i * 2.0d), (float) Math.toDegrees(1.0d + i * -2.0d));
             }
             tracker.startTracking();
         }
+    }
+
+    /**
+     * Moves the virtual horn onto the mount's region before touching Bukkit armor-stand state.
+     *
+     * <p>Virtual NMS helper entities start at {@code 0,0,0}. On Folia, calling
+     * Bukkit setters such as {@link ArmorStand#setInvisible(boolean)} before the
+     * helper is positioned can fail because the current mount thread may not own
+     * the helper's initial region.</p>
+     *
+     * @param horn the virtual horn entity
+     * @param location the current mount location
+     */
+    private void positionHornBeforeArmorStandSetup(NMSEntity horn, Location location) {
+        horn.setPositionRotation(location);
     }
 
     @Override

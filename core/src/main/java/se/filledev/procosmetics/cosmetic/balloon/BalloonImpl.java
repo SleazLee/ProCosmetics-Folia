@@ -38,6 +38,7 @@ import se.filledev.procosmetics.nms.EntityTrackerImpl;
 import se.filledev.procosmetics.util.FastMathUtil;
 import se.filledev.procosmetics.util.LocationUtil;
 import se.filledev.procosmetics.util.MathUtil;
+import se.filledev.procosmetics.util.Scheduler;
 
 import java.util.Random;
 
@@ -72,6 +73,7 @@ public class BalloonImpl extends CosmeticImpl<BalloonType, BalloonBehavior> impl
     private float rotationSpeed = RANDOM.nextFloat();
     private double windPhase = RANDOM.nextDouble() * Math.PI * 2;
     private double angle = 0.0;
+    private boolean trackerVisible = true;
 
     public BalloonImpl(ProCosmeticsPlugin plugin, User user, BalloonType type, BalloonBehavior behavior) {
         super(plugin, user, type, behavior);
@@ -88,15 +90,28 @@ public class BalloonImpl extends CosmeticImpl<BalloonType, BalloonBehavior> impl
 
         // Set as passenger to avoid disconnect between balloon and leash
         if (leashEntity != null) {
-            entity.getBukkitEntity().addPassenger(leashEntity.getBukkitEntity());
+            attachLeashPassengerOnBalloonRegion();
         }
         entityTracker.setOwner(player);
         entityTracker.startTracking();
+        applyTrackerVisibility(plugin.getBmeParticleAfkBridge().shouldRenderBalloon(player));
         runTaskTimer(plugin, 5L, 1L);
     }
 
     @Override
     protected void onUpdate() {
+        boolean shouldRender = plugin.getBmeParticleAfkBridge().shouldRenderBalloon(player);
+        applyTrackerVisibility(shouldRender);
+        if (!shouldRender) {
+            updateLocation();
+            LocationUtil.copy(targetLocation, location);
+            entity.setPositionRotation(location);
+            if (leashEntity != null) {
+                leashEntity.setPositionRotation(location);
+            }
+            return;
+        }
+
         updatePhysics();
 
         entity.sendPositionRotationPacket(location);
@@ -129,8 +144,21 @@ public class BalloonImpl extends CosmeticImpl<BalloonType, BalloonBehavior> impl
         return leashEntity;
     }
 
+    private void applyTrackerVisibility(boolean visible) {
+        if (trackerVisible == visible) {
+            return;
+        }
+        trackerVisible = visible;
+        if (visible) {
+            entityTracker.startTracking();
+        } else {
+            entityTracker.stopTracking();
+        }
+    }
+
     private void createBalloonEntity() {
         entity = plugin.getNMSManager().createEntity(player.getWorld(), cosmeticType.getEntityType(), entityTracker);
+        positionBalloonBeforeBukkitSetup(entity, location);
         Entity bukkitEntity = entity.getBukkitEntity();
 
         applyEntityScale(bukkitEntity);
@@ -139,7 +167,6 @@ public class BalloonImpl extends CosmeticImpl<BalloonType, BalloonBehavior> impl
         if (cosmeticType.isBaby() && bukkitEntity instanceof Ageable ageable) {
             ageable.setBaby();
         }
-        entity.setPositionRotation(location);
 
         if (bukkitEntity instanceof Mob) {
             entity.setLeashHolder(player);
@@ -185,14 +212,50 @@ public class BalloonImpl extends CosmeticImpl<BalloonType, BalloonBehavior> impl
         // Some entities (e.g., item displays) can't be leashed directly, so create a separate leash entity
         if (!(entity.getBukkitEntity() instanceof Mob)) {
             leashEntity = plugin.getNMSManager().createEntity(location.getWorld(), EntityType.RABBIT, entityTracker);
+            positionBalloonBeforeBukkitSetup(leashEntity, location);
 
             if (leashEntity.getBukkitEntity() instanceof Ageable ageable) {
                 ageable.setBaby();
                 ageable.setInvisible(true);
             }
             leashEntity.setLeashHolder(player);
-            leashEntity.setPositionRotation(location);
         }
+    }
+
+    /**
+     * Moves balloon helper entities beside the player before Bukkit wrapper state is touched.
+     *
+     * <p>Display balloons and fallback leash holders use Bukkit setters during setup. Folia checks
+     * those setters against the entity's current coordinates, so helpers must leave the world origin
+     * and enter the player's region before scale, display, baby, or invisibility state is applied.</p>
+     *
+     * @param entity the balloon helper being configured
+     * @param location the current balloon location near the owning player
+     */
+    private void positionBalloonBeforeBukkitSetup(NMSEntity entity, Location location) {
+        entity.setPositionRotation(location);
+    }
+
+    /**
+     * Attaches the hidden leash holder from the balloon entity's owning region.
+     *
+     * <p>Passenger relationships are entity state. The owner normally equips the balloon in the same
+     * region, but this helper keeps the setup correct near region boundaries and preserves immediate
+     * setup on non-Folia servers.</p>
+     */
+    private void attachLeashPassengerOnBalloonRegion() {
+        NMSEntity balloon = entity;
+        NMSEntity leash = leashEntity;
+
+        if (!Scheduler.isFolia()) {
+            balloon.getBukkitEntity().addPassenger(leash.getBukkitEntity());
+            return;
+        }
+        Scheduler.runOwned(balloon, () -> {
+            if (entity == balloon && leashEntity == leash) {
+                balloon.getBukkitEntity().addPassenger(leash.getBukkitEntity());
+            }
+        });
     }
 
     private void updateLocation() {
