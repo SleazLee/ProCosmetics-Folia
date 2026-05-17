@@ -91,7 +91,7 @@ The `v26_1` module uses NMS and CraftBukkit classes that are **not** available i
    - https://www.spigotmc.org/wiki/buildtools/
 2. Run BuildTools for the required version:
    ```bash
-   java -jar BuildTools.jar --rev 26.1.1
+   java -jar BuildTools.jar --rev 26.1.2
    ```
 3. Re-run the build:
    ```bash
