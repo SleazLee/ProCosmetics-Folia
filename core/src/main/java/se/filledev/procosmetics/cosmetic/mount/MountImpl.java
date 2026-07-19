@@ -18,7 +18,6 @@
 package se.filledev.procosmetics.cosmetic.mount;
 
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -44,8 +43,6 @@ import se.filledev.procosmetics.util.CosmeticEntitySpawner;
 import se.filledev.procosmetics.util.Scheduler;
 
 public class MountImpl extends CosmeticImpl<MountType, MountBehavior> implements Mount {
-
-    private static final LegacyComponentSerializer SERIALIZER = LegacyComponentSerializer.legacySection();
 
     private final boolean rideOnSpawn;
     private final boolean despawnOnDismount;
@@ -180,6 +177,40 @@ public class MountImpl extends CosmeticImpl<MountType, MountBehavior> implements
 
     @Override
     public void spawn(Location location) {
+        Location targetLocation = location.clone();
+        Entity currentEntity = entity;
+        NMSEntity currentNmsEntity = nmsEntity;
+
+        if (currentEntity == null) {
+            finishSpawn(targetLocation);
+            return;
+        }
+        boolean requireEquipped = isEquipped();
+        Runnable cleanup = () -> {
+            if (entity != currentEntity || nmsEntity != currentNmsEntity) {
+                return;
+            }
+            behavior.onUnequip(this);
+            entity = null;
+            nmsEntity = null;
+            cleanupMountedEntity(currentEntity, currentNmsEntity);
+
+            Scheduler.run(targetLocation, () -> {
+                if (entity != null || requireEquipped && !isEquipped()) {
+                    return;
+                }
+                finishSpawn(targetLocation);
+            });
+        };
+
+        if (Scheduler.isFolia()) {
+            Scheduler.run(currentEntity, cleanup);
+        } else {
+            cleanup.run();
+        }
+    }
+
+    private void finishSpawn(Location location) {
         if (!spawnAt(location) && isEquipped()) {
             unequip(false, false);
         }
@@ -199,26 +230,24 @@ public class MountImpl extends CosmeticImpl<MountType, MountBehavior> implements
      * @return {@code true} when the mount entity and NMS wrapper were created successfully
      */
     private boolean spawnAt(Location location) {
-        NMSEntity currentNmsEntity = nmsEntity;
-        Entity currentEntity = entity;
-        nmsEntity = null;
-        entity = null;
-        removeMountedEntity(currentEntity, currentNmsEntity);
-
         entity = CosmeticEntitySpawner.spawn(location, cosmeticType.getEntityType(), entity -> {
-            entity.setCustomName(SERIALIZER.serialize(user.translate(
+            plugin.getPlatformAdapter().setCustomName(entity, user.translate(
                     "cosmetic.mounts.name_tag",
                     Placeholder.unparsed("player", player.getName()),
-                    Placeholder.unparsed("cosmetic", cosmeticType.getName(user))))
-            );
+                    Placeholder.unparsed("cosmetic", cosmeticType.getName(user))));
 
             if (entity instanceof LivingEntity livingEntity) {
-                AttributeInstance attribute = livingEntity.getAttribute(Attribute.MAX_HEALTH);
+                AttributeInstance maxHealth = livingEntity.getAttribute(Attribute.MAX_HEALTH);
 
-                if (attribute != null) {
-                    double health = 2.0d;
-                    attribute.setBaseValue(health);
+                if (maxHealth != null) {
+                    double health = 2.0d; // One full heart
+                    maxHealth.setBaseValue(health);
                     livingEntity.setHealth(health);
+                }
+                AttributeInstance movementSpeed = livingEntity.getAttribute(Attribute.MOVEMENT_SPEED);
+
+                if (movementSpeed != null) {
+                    movementSpeed.setBaseValue(cosmeticType.getMovementSpeed());
                 }
             }
             nmsEntity = plugin.getNMSManager().entityToNMSEntity(entity);
@@ -253,16 +282,18 @@ public class MountImpl extends CosmeticImpl<MountType, MountBehavior> implements
         if (mountedEntity == null) {
             return;
         }
-        Scheduler.run(mountedEntity, () -> {
-            if (mountedNmsEntity != null) {
-                mountedNmsEntity.stopNavigation();
-            }
-            if (!mountedEntity.isValid()) {
-                return;
-            }
-            mountedEntity.eject();
-            mountedEntity.remove();
-        });
+        Scheduler.run(mountedEntity, () -> cleanupMountedEntity(mountedEntity, mountedNmsEntity));
+    }
+
+    private void cleanupMountedEntity(Entity mountedEntity, NMSEntity mountedNmsEntity) {
+        if (mountedNmsEntity != null) {
+            mountedNmsEntity.stopNavigation();
+        }
+        if (!mountedEntity.isValid()) {
+            return;
+        }
+        mountedEntity.eject();
+        mountedEntity.remove();
     }
 
     /**

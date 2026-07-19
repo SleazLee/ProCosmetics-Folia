@@ -37,8 +37,8 @@ public class Donkey implements MorphBehavior {
 
     @Override
     public void setupEntity(CosmeticContext<MorphType> context, NMSEntity nmsEntity) {
-        if (nmsEntity.getBukkitEntity() instanceof org.bukkit.entity.Donkey) {
-            ((org.bukkit.entity.Donkey) nmsEntity.getBukkitEntity()).setCarryingChest(true);
+        if (nmsEntity.getBukkitEntity() instanceof org.bukkit.entity.Donkey donkey) {
+            donkey.setCarryingChest(true);
         }
     }
 

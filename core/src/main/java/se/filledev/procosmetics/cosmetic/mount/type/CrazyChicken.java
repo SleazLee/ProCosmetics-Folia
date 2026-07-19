@@ -23,10 +23,7 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import se.filledev.procosmetics.api.cosmetic.CosmeticContext;
 import se.filledev.procosmetics.api.cosmetic.mount.MountBehavior;
 import se.filledev.procosmetics.api.cosmetic.mount.MountType;
@@ -35,7 +32,7 @@ import se.filledev.procosmetics.util.MathUtil;
 
 public class CrazyChicken implements MountBehavior {
 
-    private static final PotionEffect POTION_EFFECT = new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 3, false, false);
+    private static final ItemStack ITEM_STACK = new ItemStack(Material.FEATHER);
     private static final double ITEM_SPREAD = 0.5d;
     private final Location location = new Location(null, 0.0d, 0.0d, 0.0d);
 
@@ -47,9 +44,6 @@ public class CrazyChicken implements MountBehavior {
 
     @Override
     public void setupEntity(CosmeticContext<MountType> context, Entity entity, NMSEntity nmsEntity) {
-        if (entity instanceof LivingEntity livingEntity) {
-            livingEntity.addPotionEffect(POTION_EFFECT);
-        }
         nmsEntity.setRideSpeed(0.3f);
     }
 
@@ -66,7 +60,7 @@ public class CrazyChicken implements MountBehavior {
 
                 NMSEntity itemEntity = context.getPlugin().getNMSManager().createEntity(location.getWorld(), EntityType.ITEM);
                 itemEntity.setPositionRotation(location);
-                itemEntity.setEntityItemStack(new ItemStack(Material.FEATHER));
+                itemEntity.setEntityItemStack(ITEM_STACK);
                 itemEntity.setVelocity(
                         MathUtil.randomRange(-ITEM_SPREAD, ITEM_SPREAD),
                         MathUtil.randomRange(-0.1d, ITEM_SPREAD),

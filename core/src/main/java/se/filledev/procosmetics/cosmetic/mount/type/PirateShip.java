@@ -65,7 +65,7 @@ public class PirateShip implements MountBehavior, Listener {
         Player player = context.getPlayer();
 
         if (player.getVehicle() == entity) {
-            entity.setVelocity(player.getLocation(location).getDirection().multiply(0.3d));
+            entity.setVelocity(player.getLocation(location).getDirection().multiply(context.getType().getMovementSpeed()));
         }
         if (tnt != null) {
             tnt.getLocation(location).add(0.0d, 0.7d, 0.0d);

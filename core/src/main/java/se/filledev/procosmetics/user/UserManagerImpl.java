@@ -19,6 +19,7 @@ package se.filledev.procosmetics.user;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.util.concurrent.Striped;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -34,6 +35,7 @@ import se.filledev.procosmetics.ProCosmeticsPlugin;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.api.user.UserManager;
 import se.filledev.procosmetics.util.AbstractRunnable;
+import se.filledev.procosmetics.util.Scheduler;
 
 import java.util.Collection;
 import java.util.Locale;
@@ -42,7 +44,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
+import java.util.concurrent.locks.Lock;
 
 public class UserManagerImpl implements UserManager {
 
@@ -55,9 +57,9 @@ public class UserManagerImpl implements UserManager {
     private final Cache<@NotNull UUID, @NotNull User> connecting = CacheBuilder.newBuilder().expireAfterWrite(40, TimeUnit.SECONDS).build();
     private final Map<UUID, User> connected = new ConcurrentHashMap<>();
 
-    private final Map<UUID, CompletableFuture<User>> uuidRequests = new ConcurrentHashMap<>();
-    private final Map<String, CompletableFuture<User>> nameRequests = new ConcurrentHashMap<>();
-    private final Map<Integer, CompletableFuture<User>> idRequests = new ConcurrentHashMap<>();
+    private final Striped<Lock> uuidLocks = Striped.lock(64);
+    private final Striped<Lock> nameLocks = Striped.lock(64);
+    private final Striped<Lock> idLocks = Striped.lock(64);
 
     public UserManagerImpl(ProCosmeticsPlugin plugin) {
         this.plugin = plugin;
@@ -65,7 +67,7 @@ public class UserManagerImpl implements UserManager {
 
     public void registerListeners() {
         plugin.getServer().getPluginManager().registerEvents(new Listeners(), plugin);
-        new MovementRunnable().runTaskTimer(plugin, 1L, 1L);
+        new MovementRunnable().runTaskTimer(plugin, 1L, 2L); // Keep this at least 2 ticks
     }
 
     public void loadOnlinePlayers() {
@@ -98,7 +100,7 @@ public class UserManagerImpl implements UserManager {
 
                 connecting.invalidate(uuid);
 
-                synchronized (loginLocks.computeIfAbsent(uuid, uuid1 -> new Object())) {
+                synchronized (loginLocks.computeIfAbsent(uuid, _ -> new Object())) {
                     User user = plugin.getDatabase().loadUser(uuid);
 
                     if (user == null) {
@@ -155,6 +157,16 @@ public class UserManagerImpl implements UserManager {
     @Override
     public Collection<User> getAllConnected() {
         return connected.values();
+    }
+
+    @Override
+    @Nullable
+    public User getConnecting(@Nullable UUID uuid) {
+        if (uuid == null) {
+            return null;
+        }
+        connecting.cleanUp();
+        return connecting.getIfPresent(uuid);
     }
 
     @Override
@@ -226,11 +238,22 @@ public class UserManagerImpl implements UserManager {
         User user = getConnectedOrCached(uuid);
 
         if (user == null) {
-            user = plugin.getDatabase().loadUser(uuid);
+            Lock lock = uuidLocks.get(uuid);
+            lock.lock();
 
-            if (user != null) {
-                cached.put(uuid, user);
-                cachedIds.put(user.getDatabaseId(), user);
+            try {
+                user = getConnectedOrCached(uuid);
+
+                if (user == null) {
+                    user = plugin.getDatabase().loadUser(uuid);
+                }
+
+                if (user != null) {
+                    cached.put(uuid, user);
+                    cachedIds.put(user.getDatabaseId(), user);
+                }
+            } finally {
+                lock.unlock();
             }
         }
         return user;
@@ -245,11 +268,22 @@ public class UserManagerImpl implements UserManager {
         User user = getConnectedOrCached(name);
 
         if (user == null) {
-            user = plugin.getDatabase().loadUser(name);
+            Lock lock = nameLocks.get(name.toLowerCase(Locale.ROOT));
+            lock.lock();
 
-            if (user != null) {
-                cached.put(user.getUniqueId(), user);
-                cachedIds.put(user.getDatabaseId(), user);
+            try {
+                user = getConnectedOrCached(name);
+
+                if (user == null) {
+                    user = plugin.getDatabase().loadUser(name);
+                }
+
+                if (user != null) {
+                    cached.put(user.getUniqueId(), user);
+                    cachedIds.put(user.getDatabaseId(), user);
+                }
+            } finally {
+                lock.unlock();
             }
         }
         return user;
@@ -261,11 +295,22 @@ public class UserManagerImpl implements UserManager {
         User user = getConnectedOrCached(id);
 
         if (user == null) {
-            user = plugin.getDatabase().loadUser(id);
+            Lock lock = idLocks.get(id);
+            lock.lock();
 
-            if (user != null) {
-                cached.put(user.getUniqueId(), user);
-                cachedIds.put(user.getDatabaseId(), user);
+            try {
+                user = getConnectedOrCached(id);
+
+                if (user == null) {
+                    user = plugin.getDatabase().loadUser(id);
+                }
+
+                if (user != null) {
+                    cached.put(user.getUniqueId(), user);
+                    cachedIds.put(id, user);
+                }
+            } finally {
+                lock.unlock();
             }
         }
         return user;
@@ -273,48 +318,20 @@ public class UserManagerImpl implements UserManager {
 
     @Override
     public CompletableFuture<@Nullable User> getAsync(@Nullable UUID uuid) {
-        if (uuid == null) {
-            return CompletableFuture.completedFuture(null);
-        }
-        return uuidRequests.computeIfAbsent(uuid, (uuid1) -> CompletableFuture.supplyAsync(() -> get(uuid), plugin.getAsyncExecutor())
-                .whenComplete((corePlayer, throwable) -> {
-                    if (throwable != null) {
-                        plugin.getLogger().log(Level.WARNING, "Failed to load user asynchronously for UUID: " + uuid + ".", throwable);
-                    }
-                    uuidRequests.remove(uuid);
-                }));
+        return CompletableFuture.supplyAsync(() -> get(uuid), plugin.getAsyncExecutor());
     }
 
     @Override
     public CompletableFuture<@Nullable User> getAsync(@Nullable String name) {
-        if (name == null || name.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
-        }
-        String lowerName = name.toLowerCase(Locale.ROOT);
-
-        return nameRequests.computeIfAbsent(lowerName, (name1) -> CompletableFuture.supplyAsync(() -> get(lowerName), plugin.getAsyncExecutor())
-                .whenComplete((corePlayer, throwable) -> {
-                    if (throwable != null) {
-                        plugin.getLogger().log(Level.WARNING, "Failed to load user asynchronously for name: " + name + ".", throwable);
-                    }
-                    nameRequests.remove(lowerName);
-                }));
+        return CompletableFuture.supplyAsync(() -> get(name), plugin.getAsyncExecutor());
     }
 
     @Override
     public CompletableFuture<@Nullable User> getAsync(int id) {
-        return idRequests.computeIfAbsent(id, (uuid1) -> CompletableFuture.supplyAsync(() -> get(id), plugin.getAsyncExecutor())
-                .whenComplete((corePlayer, throwable) -> {
-                    if (throwable != null) {
-                        plugin.getLogger().log(Level.WARNING, "Failed to load user asynchronously for id: " + id + ".", throwable);
-                    }
-                    idRequests.remove(id);
-                }));
+        return CompletableFuture.supplyAsync(() -> get(id), plugin.getAsyncExecutor());
     }
 
     private final class MovementRunnable extends AbstractRunnable {
-
-        private final Location reuseableLocation = new Location(null, 0, 0, 0);
 
         @Override
         public void run() {
@@ -322,14 +339,21 @@ public class UserManagerImpl implements UserManager {
                 Player player = user.getPlayer();
 
                 if (player != null) {
-                    Location location = player.getLocation(reuseableLocation);
-                    boolean moving = hasDifference(location, user.getLastLocation());
-                    user.setMoving(moving);
-
-                    if (moving) {
-                        user.setLastLocation(location);
-                    }
+                    Scheduler.run(player, () -> updateMovement(user, player));
                 }
+            }
+        }
+
+        private void updateMovement(User user, Player player) {
+            if (!player.isOnline() || connected.get(user.getUniqueId()) != user) {
+                return;
+            }
+            Location location = player.getLocation();
+            boolean moving = hasDifference(location, user.getLastLocation());
+            user.setMoving(moving);
+
+            if (moving) {
+                user.setLastLocation(location);
             }
         }
 

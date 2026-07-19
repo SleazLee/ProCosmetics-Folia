@@ -48,7 +48,7 @@ public class Paintball implements GadgetBehavior, Listener {
     private static final ProCosmeticsPlugin PLUGIN = ProCosmeticsPlugin.getPlugin();
 
     private static final int PAINT_RANGE = 2;
-    private static final int PAINT_DURATION = 5;
+    private static final int PAINT_DURATION = 5 * 20;
     private static final double PAINT_PARTICLE_CHANCE = 0.6d;
 
     private final Set<Projectile> balls = ConcurrentHashMap.newKeySet();
@@ -127,7 +127,7 @@ public class Paintball implements GadgetBehavior, Listener {
             ItemStack itemStack = snowball.getItem();
 
             for (Block block : MathUtil.getIn3DRadius(location, PAINT_RANGE)) {
-                if (PLUGIN.getBlockRestoreManager().setFakeBlock(block, itemStack, true, PAINT_DURATION)) {
+                if (PLUGIN.getFakeBlockManager().setFakeBlock(block, itemStack, true, PAINT_DURATION)) {
                     if (MathUtil.THREAD_LOCAL_RANDOM.nextDouble() < PAINT_PARTICLE_CHANCE) {
                         location.getWorld().playEffect(block.getLocation(location), Effect.STEP_SOUND, itemStack.getType());
                     }

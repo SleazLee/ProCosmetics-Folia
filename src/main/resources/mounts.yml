@@ -68,6 +68,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.2
     item: "minecraft:snow_block"
     count: 1
     treasure_chests:
@@ -81,6 +82,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.2
     item: "minecraft:spider_eye"
     count: 1
     treasure_chests:
@@ -94,6 +96,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.2
     item: "minecraft:chest"
     count: 1
     treasure_chests:
@@ -107,6 +110,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.5
     item: "minecraft:egg"
     count: 1
     treasure_chests:
@@ -120,6 +124,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.2
     item: "minecraft:rotten_flesh"
     count: 1
     treasure_chests:
@@ -133,6 +138,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 50000
+    movement_speed: 0.6
     item: "minecraft:dragon_egg[!minecraft:rarity]"
     count: 1
     treasure_chests:
@@ -146,6 +152,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.2
     item: "minecraft:snowball"
     count: 1
     treasure_chests:
@@ -159,6 +166,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.2
     item: "minecraft:packed_ice"
     count: 1
     treasure_chests:
@@ -172,6 +180,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 20000
+    movement_speed: 0.3
     item: "minecraft:minecart"
     count: 1
     treasure_chests:
@@ -185,6 +194,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.2
     item: "minecraft:bone"
     count: 1
     treasure_chests:
@@ -198,6 +208,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.2
     item: "minecraft:pink_stained_glass"
     count: 1
     treasure_chests:
@@ -211,6 +222,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 20000
+    movement_speed: 0.7
     item: "minecraft:netherrack"
     count: 1
     treasure_chests:
@@ -224,6 +236,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.3
     item: "minecraft:oak_boat"
     count: 1
     treasure_chests:
@@ -237,6 +250,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.2
     item: "minecraft:dead_bush"
     count: 1
     treasure_chests:
@@ -250,6 +264,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.2
     item: "minecraft:slime_block"
     count: 1
     treasure_chests:
@@ -263,6 +278,7 @@ cosmetics:
     purchasable:
       enabled: true
       cost: 10000
+    movement_speed: 0.2
     item: "minecraft:blaze_rod"
     count: 1
     treasure_chests:
@@ -271,4 +287,4 @@ cosmetics:
       - legendary
 
 # Do not edit this!
-config_version: 1
+config_version: 2

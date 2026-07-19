@@ -33,7 +33,7 @@ import java.util.List;
 public interface Language {
 
     /**
-     * Gets the language code (e.g., "en_us", "es_es").
+     * Gets the language code.
      *
      * @return the language code
      */

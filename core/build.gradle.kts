@@ -10,11 +10,18 @@ repositories {
 
 dependencies {
     // Server APIs
-    compileOnly("io.papermc.paper:paper-api:${rootProject.extra["paperApiVersion_foliaApi"]}")
-    compileOnly("org.spigotmc:spigot-api:26.1.1-R0.1-SNAPSHOT")
+    // Keep shared core bytecode on the 26.1.x / Adventure 4 ABI. The dedicated
+    // paper module compiles against 26.2 below, and Adventure 5 retains bridges
+    // for the older descriptors used here.
+    compileOnly("io.papermc.paper:paper-api:${rootProject.extra["corePaperApiVersion"]}")
+    compileOnly("org.spigotmc:spigot:26.2-R0.1-SNAPSHOT") {
+        // Paper API provides the Spigot API capability for Folia-aware core code.
+        exclude(group = "org.spigotmc", module = "spigot-api")
+    }
 
     // Project dependencies
     implementation(project(":api"))
+    implementation(project(":paper"))
     compileOnly("org.jetbrains:annotations:26.1.0")
 
     // Runtime libraries (will be shaded)
@@ -24,15 +31,18 @@ dependencies {
     }
     // NoteBlockAPI (disabled for Folia compatibility)
     // implementation("com.github.FilleDev:NoteBlockAPI:1c5500b038")
-    implementation("org.mongodb:mongodb-driver-sync:5.6.3")
-    implementation("com.zaxxer:HikariCP:7.0.2")
-    implementation("redis.clients:jedis:7.2.1")
+    implementation("org.mongodb:mongodb-driver-sync:5.8.0")
+    implementation("com.zaxxer:HikariCP:7.1.0")
+    implementation("redis.clients:jedis:7.5.2")
     implementation("org.bstats:bstats-bukkit:3.2.1")
-    compileOnly("org.xerial:sqlite-jdbc:3.50.3.0") // Included in Spigot
+    compileOnly("org.xerial:sqlite-jdbc:3.53.2.0") // Included in Spigot
 
     implementation("net.kyori:adventure-api:4.26.1")
     implementation("net.kyori:adventure-text-minimessage:4.26.1")
-    implementation("net.kyori:adventure-platform-bukkit:4.4.1")
+    implementation("net.kyori:adventure-text-serializer-json:4.26.1")
+    implementation("net.kyori:adventure-text-serializer-gson:4.26.1")
+    implementation("net.kyori:adventure-text-serializer-legacy:4.26.1")
+    implementation("net.kyori:adventure-text-serializer-plain:4.26.1")
 
     // Plugin hooks
     compileOnly("me.clip:placeholderapi:2.12.2")
@@ -41,8 +51,12 @@ dependencies {
     {
         exclude(group = "io.papermc.paper")
     }
-    compileOnly("com.github.Zrips:CMI-API:9.7.14.3")
     compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.17-SNAPSHOT")
+    {
+        exclude(group = "com.google.guava")
+        exclude(group = "com.google.code.gson")
+    }
+    compileOnly("com.github.Zrips:CMI-API:9.8.6.4")
     compileOnly("org.black_ixx:playerpoints:3.3.3")
     compileOnly("com.github.LeonMangler:SuperVanish:6.2.19")
     compileOnly("ac.grim.grimac:GrimAPI:1.3.2.1")

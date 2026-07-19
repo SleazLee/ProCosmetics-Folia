@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>Access patterns:
  * <ul>
+ *   <li><b>Connecting</b> - Only returns users currently in the process of connecting (pre-login)</li>
  *   <li><b>Connected</b> - Only returns users currently online</li>
  *   <li><b>ConnectedOrCached</b> - Returns online users or recently cached offline users</li>
  *   <li><b>Get</b> - Loads from database if not found in memory (synchronous)</li>
@@ -43,6 +44,15 @@ public interface UserManager {
      * @return an immutable collection of all online users
      */
     Collection<? extends User> getAllConnected();
+
+    /**
+     * Gets a user that is currently in the process of connecting (pre-login).
+     *
+     * @param uuid the user's UUID
+     * @return the connecting user, or null if not found
+     */
+    @Nullable
+    User getConnecting(@Nullable UUID uuid);
 
     /**
      * Gets a connected user by their UUID.

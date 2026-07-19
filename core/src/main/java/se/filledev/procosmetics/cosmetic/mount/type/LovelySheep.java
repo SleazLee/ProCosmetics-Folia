@@ -74,8 +74,10 @@ public class LovelySheep extends BlockTrailBehavior {
                     case PURPLE: {
                         sheep.setColor(DyeColor.MAGENTA);
                     }
+                    case null:
                     default: {
                         sheep.setColor(DyeColor.RED);
+                        break;
                     }
                 }
             }

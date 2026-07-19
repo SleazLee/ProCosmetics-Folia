@@ -122,7 +122,7 @@ public class HypeTrain implements MountBehavior, Listener {
             } else {
                 Vector forward = rider.getLocation().getDirection();
                 tail.setDirection(forward);
-                blockNMSEntity.setPositionRotation(tail.add(forward.multiply(0.3d)));
+                blockNMSEntity.setPositionRotation(tail.add(forward.multiply(context.getType().getMovementSpeed())));
             }
             before = tail;
 

@@ -17,32 +17,58 @@
  */
 package se.filledev.procosmetics.cosmetic.mount.type;
 
-import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
-import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Horse;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.Transformation;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 import se.filledev.procosmetics.api.cosmetic.CosmeticContext;
 import se.filledev.procosmetics.api.cosmetic.mount.MountBehavior;
 import se.filledev.procosmetics.api.cosmetic.mount.MountType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.nms.EntityTrackerImpl;
-import se.filledev.procosmetics.util.MathUtil;
+
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 public class Rudolf implements MountBehavior {
 
-    private static final Particle.DustOptions DUST_OPTIONS = new Particle.DustOptions(Color.fromRGB(255, 0, 0), 1);
-
     private static final ItemStack SADDLE_ITEM = new ItemStack(Material.SADDLE);
-    private static final ItemStack DEAD_BUSH_ITEM = new ItemStack(Material.DEAD_BUSH);
-    private final static double HORN_WIDTH_OFFSET = 0.3d;
+    private static final ItemStack HORN_ITEM = new ItemStack(Material.DEAD_BUSH);
+    private static final ItemStack NOSE_ITEM = new ItemStack(Material.RED_CONCRETE);
+
+    private static final int TELEPORT_DURATION_TICKS = 1;
+
+    // Horn placement
+    private static final float HORN_WIDTH_OFFSET = 0.3f;
+    private static final float HORN_FORWARD_OFFSET = 1.0f;
+    private static final float HORN_HEIGHT_OFFSET = 0.9f;
+    private static final float HORN_SCALE = 0.7f;
+    private static final float HORN_FRONT_TILT = (float) (Math.PI / 6);
+    private static final float HORN_ROTATION = (float) (Math.PI / 4);
+
+    // Nose placement
+    private static final Vector3f NOSE_TRANSLATION = new Vector3f(0.0f, 0.35f, 1.55f);
+    private static final float NOSE_TILT = (float) (Math.PI / 6);
+    private static final float NOSE_SCALE = 0.2f;
+
+    // Head-tracking & effects
+    private static final float PITCH_FOLLOW_FACTOR = 0.5f;
+    private static final int PARTICLE_INTERVAL_TICKS = 5;
+    private static final int PARTICLE_COUNT = 6;
+    private static final double PARTICLE_SPREAD_HORIZONTAL = 1.0d;
+    private static final double PARTICLE_SPREAD_VERTICAL = 1.2d;
 
     private final Location location = new Location(null, 0.0d, 0.0d, 0.0d);
     private final EntityTrackerImpl tracker = new EntityTrackerImpl();
+    private final List<NMSEntity> displayEntities = new CopyOnWriteArrayList<>();
     private int ticks;
 
     @Override
@@ -51,71 +77,47 @@ public class Rudolf implements MountBehavior {
 
     @Override
     public void setupEntity(CosmeticContext<MountType> context, Entity entity, NMSEntity nmsEntity) {
-        if (entity instanceof Horse horse) {
-            horse.setColor(Horse.Color.BROWN);
-            horse.setStyle(Horse.Style.NONE);
-            horse.setJumpStrength(1.0d);
-            horse.setAdult();
-            horse.setTamed(true);
-            horse.getInventory().setSaddle(SADDLE_ITEM);
-
-            Location location = entity.getLocation();
-
-            for (int i = 0; i < 2; i++) {
-                NMSEntity horn = context.getPlugin().getNMSManager().createEntity(entity.getWorld(), EntityType.ARMOR_STAND, tracker);
-
-                if (horn == null) {
-                    continue;
-                }
-                positionHornBeforeArmorStandSetup(horn, location);
-                if (horn.getBukkitEntity() instanceof ArmorStand armorStand) {
-                    armorStand.setInvisible(true);
-                    armorStand.setArms(false);
-                    armorStand.setMarker(false);
-                }
-                horn.setHelmet(DEAD_BUSH_ITEM);
-                horn.setHeadPose(0.0f, (float) Math.toDegrees(-1.0d + i * 2.0d), (float) Math.toDegrees(1.0d + i * -2.0d));
-            }
-            tracker.startTracking();
+        if (!(entity instanceof Horse horse)) {
+            return;
         }
-    }
+        horse.setColor(Horse.Color.BROWN);
+        horse.setStyle(Horse.Style.NONE);
+        horse.setJumpStrength(1.0d);
+        horse.setAdult();
+        horse.setTamed(true);
+        horse.getInventory().setSaddle(SADDLE_ITEM);
 
-    /**
-     * Moves the virtual horn onto the mount's region before touching Bukkit armor-stand state.
-     *
-     * <p>Virtual NMS helper entities start at {@code 0,0,0}. On Folia, calling
-     * Bukkit setters such as {@link ArmorStand#setInvisible(boolean)} before the
-     * helper is positioned can fail because the current mount thread may not own
-     * the helper's initial region.</p>
-     *
-     * @param horn the virtual horn entity
-     * @param location the current mount location
-     */
-    private void positionHornBeforeArmorStandSetup(NMSEntity horn, Location location) {
-        horn.setPositionRotation(location);
+        for (int i = 0; i < 2; i++) {
+            int index = i;
+            spawnDisplayEntity(context, horse, HORN_ITEM, itemDisplay ->
+                    applyHornTransformation(itemDisplay, index));
+        }
+        spawnDisplayEntity(context, horse, NOSE_ITEM, this::applyNoseTransformation);
+
+        tracker.startTracking();
     }
 
     @Override
     public void onUpdate(CosmeticContext<MountType> context, Entity entity, NMSEntity nmsEntity) {
-        int i = 0;
-
         entity.getLocation(location);
 
-        for (NMSEntity horn : tracker.getEntities()) {
-            Location hornLocation = MathUtil.getDirectionalLocation(location, -HORN_WIDTH_OFFSET + i++ * 2.0d * HORN_WIDTH_OFFSET, 0.95d);
+        // Scale the pitch to better align the horns with the horse's head movement.
+        // Ideally, this should be handled by updating the transforms directly.
+        location.setPitch(location.getPitch() * PITCH_FOLLOW_FACTOR);
 
-            if (horn.getPreviousLocation() != hornLocation) {
-                horn.sendPositionRotationPacket(hornLocation);
-            }
+        for (NMSEntity displayEntity : displayEntities) {
+            displayEntity.sendPositionRotationPacket(location);
         }
-        if (ticks % 5 == 0) {
-            location.getWorld().spawnParticle(Particle.SNOWFLAKE, location, 6, 1.0d, 1.2d, 1.0d, 0.0d);
+        if (ticks % PARTICLE_INTERVAL_TICKS == 0) {
+            location.getWorld().spawnParticle(Particle.SNOWFLAKE,
+                    location,
+                    PARTICLE_COUNT,
+                    PARTICLE_SPREAD_HORIZONTAL,
+                    PARTICLE_SPREAD_VERTICAL,
+                    PARTICLE_SPREAD_HORIZONTAL,
+                    0.0d
+            );
         }
-
-        location.getWorld().spawnParticle(Particle.DUST,
-                MathUtil.getDirectionalLocation(location.add(0.0d, 1.45d, 0.0d), 0.0d, 1.35d),
-                0, 0.0d, 0.0d, 0.0d, 0, DUST_OPTIONS
-        );
 
         if (++ticks > 360) {
             ticks = 0;
@@ -125,5 +127,50 @@ public class Rudolf implements MountBehavior {
     @Override
     public void onUnequip(CosmeticContext<MountType> context) {
         tracker.destroy();
+        displayEntities.clear();
+    }
+
+    private void spawnDisplayEntity(CosmeticContext<MountType> context,
+                                    Horse horse,
+                                    ItemStack itemStack,
+                                    Consumer<ItemDisplay> transformer) {
+        NMSEntity displayEntity = context.getPlugin().getNMSManager()
+                .createEntity(horse.getWorld(), EntityType.ITEM_DISPLAY, tracker);
+
+        if (displayEntity == null) {
+            return;
+        }
+        displayEntity.setPositionRotation(horse.getLocation());
+
+        if (displayEntity.getBukkitEntity() instanceof ItemDisplay itemDisplay) {
+            itemDisplay.setItemStack(itemStack);
+            itemDisplay.setTeleportDuration(TELEPORT_DURATION_TICKS);
+            transformer.accept(itemDisplay);
+            horse.addPassenger(itemDisplay);
+        }
+        displayEntities.add(displayEntity);
+    }
+
+    private void applyNoseTransformation(ItemDisplay itemDisplay) {
+        Transformation transformation = new Transformation(
+                NOSE_TRANSLATION,
+                new Quaternionf().rotateX(NOSE_TILT),
+                new Vector3f(NOSE_SCALE, NOSE_SCALE, NOSE_SCALE),
+                new Quaternionf()
+        );
+        itemDisplay.setTransformation(transformation);
+    }
+
+    private void applyHornTransformation(ItemDisplay itemDisplay, int index) {
+        float sideOffset = -HORN_WIDTH_OFFSET + index * 2.0f * HORN_WIDTH_OFFSET;
+        float flip = (float) (index * Math.PI);
+
+        Transformation transformation = new Transformation(
+                new Vector3f(sideOffset, HORN_HEIGHT_OFFSET, HORN_FORWARD_OFFSET),
+                new Quaternionf().rotateXYZ(HORN_FRONT_TILT, flip, HORN_ROTATION),
+                new Vector3f(HORN_SCALE, HORN_SCALE, HORN_SCALE),
+                new Quaternionf()
+        );
+        itemDisplay.setTransformation(transformation);
     }
 }

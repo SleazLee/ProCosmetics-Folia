@@ -25,6 +25,7 @@ import se.filledev.procosmetics.api.economy.EconomyManager;
 import se.filledev.procosmetics.api.locale.LanguageManager;
 import se.filledev.procosmetics.api.menu.MenuManager;
 import se.filledev.procosmetics.api.nms.NMSManager;
+import se.filledev.procosmetics.api.platform.PlatformAdapter;
 import se.filledev.procosmetics.api.storage.Database;
 import se.filledev.procosmetics.api.treasure.TreasureChestManager;
 import se.filledev.procosmetics.api.treasure.animation.TreasureChestAnimationRegistry;
@@ -124,6 +125,13 @@ public interface ProCosmetics {
      * @return the economy manager
      */
     EconomyManager getEconomyManager();
+
+    /**
+     * Gets the platform adapter for handling platform-specific operations.
+     *
+     * @return the platform adapter
+     */
+    PlatformAdapter getPlatformAdapter();
 
     /**
      * Gets the underlying Bukkit JavaPlugin instance.

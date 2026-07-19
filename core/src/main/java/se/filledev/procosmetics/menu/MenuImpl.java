@@ -20,7 +20,6 @@ package se.filledev.procosmetics.menu;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.md_5.bungee.api.ChatColor;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -53,8 +52,7 @@ public abstract class MenuImpl implements Menu {
         this.player = user.getPlayer();
         this.title = title;
         this.rows = Math.min(6, Math.max(1, rows));
-        this.inventory = plugin.getJavaPlugin().getServer().createInventory(player, getSize(),
-                LegacyComponentSerializer.legacySection().serialize(title));
+        this.inventory = plugin.getPlatformAdapter().createInventory(player, getSize(), title);
     }
 
     public void open() {

@@ -14,6 +14,7 @@
 
 rarities:
   common:
+    enabled: true
     priority: 1
     colors:
       primary: "#999999"     # Light gray
@@ -27,6 +28,7 @@ rarities:
       flicker: false
       trail: false
   uncommon:
+    enabled: true
     priority: 10
     colors:
       primary: "#33ff33"     # Bright green
@@ -40,6 +42,7 @@ rarities:
       flicker: false
       trail: false
   rare:
+    enabled: true
     priority: 20
     colors:
       primary: "#1ad1ff"     # Bright blue
@@ -53,6 +56,7 @@ rarities:
       flicker: false
       trail: false
   epic:
+    enabled: true
     priority: 30
     colors:
       primary: "#ff80ff"     # Bright purple
@@ -66,6 +70,7 @@ rarities:
       flicker: false
       trail: true
   legendary:
+    enabled: true
     priority: 40
     colors:
       primary: "#e6b800"     # Gold / orange
@@ -79,6 +84,7 @@ rarities:
       flicker: false
       trail: true
   limited:
+    enabled: true
     priority: 50
     colors:
       primary: "#e600e6"     # Purple
@@ -93,4 +99,4 @@ rarities:
       trail: true
 
 # Do not edit this!
-config_version: 1
+config_version: 2

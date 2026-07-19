@@ -94,8 +94,9 @@ public interface ItemBuilder {
     /**
      * Retrieves the current display name as a Component.
      *
-     * @return the display name component, or an empty component if none exists
+     * @return the display name component, or null if none exists
      */
+    @Nullable
     Component getDisplayName();
 
     /**
@@ -129,8 +130,9 @@ public interface ItemBuilder {
     /**
      * Retrieves the current lore as a list of Components.
      *
-     * @return the lore components, or an empty list if none exists
+     * @return the lore components, or null if none exists
      */
+    @Nullable
     List<Component> getLore();
 
     /**

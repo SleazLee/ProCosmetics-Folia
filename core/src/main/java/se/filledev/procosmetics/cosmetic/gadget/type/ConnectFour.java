@@ -157,12 +157,18 @@ public class ConnectFour implements GadgetBehavior, Listener {
     @Override
     public InteractionResult onInteract(CosmeticContext<GadgetType> context, Action action,
                                         @Nullable Block clickedBlock, @Nullable Vector clickedPosition) {
-        if (gameState != GameState.WAITING_FOR_OPPONENT || lastClicked == null) {
+        if (gameState != GameState.WAITING_FOR_OPPONENT) {
             return InteractionResult.fail();
         }
-        Player clickedPlayer = PLUGIN.getJavaPlugin().getServer().getPlayer(lastClicked);
+        Player clickedPlayer = null;
+
+        if (lastClicked != null) {
+            clickedPlayer = PLUGIN.getJavaPlugin().getServer().getPlayer(lastClicked);
+        }
 
         if (clickedPlayer == null || clickedPlayer.equals(context.getPlayer())) {
+            context.getUser().sendMessage(context.getUser().translate("cosmetic.gadgets.click_player"));
+            context.getPlayer().playSound(context.getPlayer(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 1.0f);
             return InteractionResult.fail();
         }
         opponent = clickedPlayer;

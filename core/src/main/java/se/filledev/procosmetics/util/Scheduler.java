@@ -68,12 +68,13 @@ public final class Scheduler {
     }
 
     public static Task runTimer(Runnable runnable, long delayTicks, long periodTicks) {
+        long safePeriod = Math.max(1L, periodTicks);
         if (IS_FOLIA) {
             return new Task(Bukkit.getGlobalRegionScheduler()
                     .runAtFixedRate(ProCosmeticsPlugin.getPlugin(), task -> runnable.run(),
-                            Math.max(1L, delayTicks), periodTicks));
+                            Math.max(1L, delayTicks), safePeriod));
         }
-        return new Task(Bukkit.getScheduler().runTaskTimer(ProCosmeticsPlugin.getPlugin(), runnable, delayTicks, periodTicks));
+        return new Task(Bukkit.getScheduler().runTaskTimer(ProCosmeticsPlugin.getPlugin(), runnable, delayTicks, safePeriod));
     }
 
     public static Task runAsync(Runnable runnable) {
@@ -95,11 +96,12 @@ public final class Scheduler {
     }
 
     public static Task runAsyncTimer(Runnable runnable, long delayTicks, long periodTicks) {
+        long safePeriod = Math.max(1L, periodTicks);
         if (IS_FOLIA) {
             return new Task(Bukkit.getAsyncScheduler().runAtFixedRate(ProCosmeticsPlugin.getPlugin(), task -> runnable.run(),
-                    Math.max(1L, delayTicks) * 50L, periodTicks * 50L, TimeUnit.MILLISECONDS));
+                    Math.max(1L, delayTicks) * 50L, safePeriod * 50L, TimeUnit.MILLISECONDS));
         }
-        return new Task(Bukkit.getScheduler().runTaskTimerAsynchronously(ProCosmeticsPlugin.getPlugin(), runnable, delayTicks, periodTicks));
+        return new Task(Bukkit.getScheduler().runTaskTimerAsynchronously(ProCosmeticsPlugin.getPlugin(), runnable, delayTicks, safePeriod));
     }
 
     public static Task run(Location location, Runnable runnable) {
@@ -260,24 +262,26 @@ public final class Scheduler {
     }
 
     public static Task runTimer(Location location, Runnable runnable, long delayTicks, long periodTicks) {
+        long safePeriod = Math.max(1L, periodTicks);
         if (IS_FOLIA) {
             return new Task(Bukkit.getRegionScheduler().runAtFixedRate(ProCosmeticsPlugin.getPlugin(), location,
-                    task -> runnable.run(), Math.max(1L, delayTicks), periodTicks));
+                    task -> runnable.run(), Math.max(1L, delayTicks), safePeriod));
         }
-        return new Task(Bukkit.getScheduler().runTaskTimer(ProCosmeticsPlugin.getPlugin(), runnable, delayTicks, periodTicks));
+        return new Task(Bukkit.getScheduler().runTaskTimer(ProCosmeticsPlugin.getPlugin(), runnable, delayTicks, safePeriod));
     }
 
     public static Task runTimer(Entity entity, Runnable runnable, long delayTicks, long periodTicks) {
+        long safePeriod = Math.max(1L, periodTicks);
         if (IS_FOLIA) {
             ScheduledTask task = entity.getScheduler().runAtFixedRate(ProCosmeticsPlugin.getPlugin(),
-                    scheduledTask -> runnable.run(), null, Math.max(1L, delayTicks), Math.max(1L, periodTicks));
+                    scheduledTask -> runnable.run(), null, Math.max(1L, delayTicks), safePeriod);
 
             if (task == null) {
                 return Task.dummy();
             }
             return new Task(task);
         }
-        return new Task(Bukkit.getScheduler().runTaskTimer(ProCosmeticsPlugin.getPlugin(), runnable, delayTicks, periodTicks));
+        return new Task(Bukkit.getScheduler().runTaskTimer(ProCosmeticsPlugin.getPlugin(), runnable, delayTicks, safePeriod));
     }
 
     public static boolean isFolia() {

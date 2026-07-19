@@ -33,6 +33,13 @@ public interface MountType extends CosmeticType<MountType, MountBehavior> {
     EntityType getEntityType();
 
     /**
+     * Gets the movement speed of this mount.
+     *
+     * @return the movement speed multiplier for this mount
+     */
+    double getMovementSpeed();
+
+    /**
      * Builder interface for constructing mount type instances.
      */
     interface Builder extends CosmeticType.Builder<MountType, MountBehavior, Builder> {
@@ -44,6 +51,14 @@ public interface MountType extends CosmeticType<MountType, MountBehavior> {
          * @return this builder for method chaining
          */
         Builder entityType(EntityType entityType);
+
+        /**
+         * Sets the movement speed of this mount.
+         *
+         * @param movementSpeed the movement speed multiplier
+         * @return this builder for method chaining
+         */
+        Builder movementSpeed(double movementSpeed);
 
         /**
          * Builds and returns the configured mount type instance.

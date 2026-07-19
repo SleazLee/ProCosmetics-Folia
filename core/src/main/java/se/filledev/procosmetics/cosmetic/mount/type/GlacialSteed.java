@@ -19,13 +19,10 @@ package se.filledev.procosmetics.cosmetic.mount.type;
 
 import org.bukkit.Material;
 import org.bukkit.Particle;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Horse;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import se.filledev.procosmetics.api.cosmetic.CosmeticContext;
 import se.filledev.procosmetics.api.cosmetic.mount.MountType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
@@ -52,9 +49,6 @@ public class GlacialSteed extends BlockTrailBehavior {
             horse.setTamed(true);
             horse.getInventory().setSaddle(new ItemStack(Material.SADDLE));
             horse.setColor(Horse.Color.WHITE);
-
-            horse.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.3d);
-            horse.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, Integer.MAX_VALUE, 1, false, false));
         }
     }
 

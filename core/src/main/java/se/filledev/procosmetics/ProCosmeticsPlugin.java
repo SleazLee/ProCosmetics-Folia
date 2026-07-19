@@ -17,7 +17,6 @@
  */
 package se.filledev.procosmetics;
 
-import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import org.bstats.bukkit.Metrics;
 import org.bstats.charts.SimplePie;
 import org.bukkit.command.CommandSender;
@@ -30,6 +29,7 @@ import se.filledev.procosmetics.api.ProCosmeticsProvider;
 import se.filledev.procosmetics.api.config.Config;
 import se.filledev.procosmetics.api.cosmetic.registry.CategoryRegistries;
 import se.filledev.procosmetics.api.cosmetic.registry.CosmeticRarityRegistry;
+import se.filledev.procosmetics.api.platform.PlatformAdapter;
 import se.filledev.procosmetics.api.storage.Database;
 import se.filledev.procosmetics.api.treasure.TreasureChestPlatform;
 import se.filledev.procosmetics.api.treasure.animation.TreasureChestAnimationRegistry;
@@ -51,6 +51,8 @@ import se.filledev.procosmetics.locale.LanguageManagerImpl;
 import se.filledev.procosmetics.menu.MenuManagerImpl;
 import se.filledev.procosmetics.nms.NMSManagerImpl;
 import se.filledev.procosmetics.placeholder.PlaceholderManager;
+import se.filledev.procosmetics.platform.PaperAdapter;
+import se.filledev.procosmetics.platform.SpigotAdapter;
 import se.filledev.procosmetics.redis.RedisManager;
 import se.filledev.procosmetics.storage.DatabaseTypeProvider;
 import se.filledev.procosmetics.treasure.TreasureChestManagerImpl;
@@ -75,7 +77,6 @@ import java.util.logging.Logger;
 public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
 
     private static ProCosmeticsPlugin plugin;
-    private BukkitAudiences adventure;
 
     private Logger logger;
     private Executor syncExecutor;
@@ -93,6 +94,7 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
     private EconomyManagerImpl economyManager;
     private PlaceholderManager placeholderManager;
     private CommandBase commandBase;
+    private PlatformAdapter platformAdapter;
     private RedisManager redisManager;
     private Database database;
     private WorldGuardManager worldGuardManager;
@@ -130,6 +132,7 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
         commandBase = new CommandBase(this);
         grimExemptionManager = new GrimExemptionManager(this);
 
+        initializePlatformAdapter();
         initializeRedis();
         initializeDatabase();
         initializeMetrics();
@@ -138,8 +141,6 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
 
     @Override
     public void onEnable() {
-        adventure = BukkitAudiences.create(this);
-
         if (!VersionUtil.isSupported()) {
             LogUtil.printUnsupported();
             commandBase = new CommandBase(this);
@@ -208,13 +209,21 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
         }
         HandlerList.unregisterAll(this);
         Scheduler.cancelTasks();
+        fakeBlockManager.shutdown();
 
-        if (adventure != null) {
-            adventure.close();
-            adventure = null;
-        }
         // NoteBlockAPI is disabled for Folia compatibility.
         // NoteBlockAPI.getAPI().shutdown();
+    }
+
+    private void initializePlatformAdapter() {
+        boolean paper = false;
+
+        try {
+            Class.forName("com.destroystokyo.paper.ParticleBuilder");
+            paper = true;
+        } catch (ClassNotFoundException _) {
+        }
+        platformAdapter = paper ? new PaperAdapter() : new SpigotAdapter();
     }
 
     private void initializeRedis() {
@@ -330,13 +339,6 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
         return plugin;
     }
 
-    public BukkitAudiences adventure() {
-        if (adventure == null) {
-            throw new IllegalStateException("Tried to access Adventure when the plugin was disabled!");
-        }
-        return adventure;
-    }
-
     @Override
     public JavaPlugin getJavaPlugin() {
         return this;
@@ -397,13 +399,18 @@ public class ProCosmeticsPlugin extends JavaPlugin implements ProCosmetics {
         return menuManager;
     }
 
-    public FakeBlockManager getBlockRestoreManager() {
+    public FakeBlockManager getFakeBlockManager() {
         return fakeBlockManager;
     }
 
     @Override
     public EconomyManagerImpl getEconomyManager() {
         return economyManager;
+    }
+
+    @Override
+    public PlatformAdapter getPlatformAdapter() {
+        return platformAdapter;
     }
 
     public PlaceholderManager getPlaceholderManager() {

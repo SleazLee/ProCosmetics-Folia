@@ -163,11 +163,11 @@ public class MusicImpl extends CosmeticImpl<MusicType, MusicBehavior> implements
             ItemStack itemStack = Materials.getRandomStainedGlassItem();
 
             for (Block block : MathUtil.getIn2DRadius(blockLoc, DISCO_FLOOR_SIZE)) {
-                plugin.getBlockRestoreManager().setFakeBlock(block, itemStack, false);
+                plugin.getFakeBlockManager().setFakeBlock(block, itemStack, true);
             }
 
             for (Block block : MathUtil.getIn2DRadius(blockLoc.subtract(0.0d, 1.0d, 0.0d), DISCO_FLOOR_SIZE)) {
-                plugin.getBlockRestoreManager().setFakeBlock(block, DISCO_FLOOR_BOTTOM_BLOCK, false);
+                plugin.getFakeBlockManager().setFakeBlock(block, DISCO_FLOOR_BOTTOM_BLOCK, false);
             }
         }
         if (step++ > 100) {
@@ -193,10 +193,7 @@ public class MusicImpl extends CosmeticImpl<MusicType, MusicBehavior> implements
                     Placeholder.unparsed("song", cosmeticType.getName(user)));
         }
         displayingSong = !displayingSong;
-
-        if (!component.equals(Component.empty())) {
-            armorStand.setCustomName(component);
-        }
+        armorStand.setCustomName(component);
     }
 
     @Override
@@ -212,7 +209,7 @@ public class MusicImpl extends CosmeticImpl<MusicType, MusicBehavior> implements
         if (discoFloor) {
             for (int i = 0; i < 2; i++) {
                 for (Block block : MathUtil.getIn2DRadius(location.subtract(0.0d, 1.0d, 0.0d), DISCO_FLOOR_SIZE)) {
-                    plugin.getBlockRestoreManager().resetBlock(block);
+                    plugin.getFakeBlockManager().resetFakeBlock(block);
                 }
             }
         }

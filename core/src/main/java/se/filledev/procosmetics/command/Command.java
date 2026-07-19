@@ -44,7 +44,7 @@ public abstract class Command<T extends CommandSender> {
     }
 
     public Audience audience(CommandSender sender) {
-        return plugin.adventure().sender(sender);
+        return plugin.getPlatformAdapter().audience(sender);
     }
 
     public Translator translator(CommandSender source) {

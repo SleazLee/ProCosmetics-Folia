@@ -40,3 +40,12 @@ Official and stable releases can be found on:
 ## License
 
 This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) for full details.
+
+## Localisation
+
+Help translate ProCosmetics into more languages by joining
+our [Crowdin project](https://crowdin.com/project/procosmetics/invite?h=9e296fc3ef36b7a48b2f44ea9bddb3d12819377).
+Community contributions are always welcome and help make the plugin accessible to players around the world.
+
+If you find any translation issues or have suggestions for improving existing translations, feel free to contribute
+through Crowdin.

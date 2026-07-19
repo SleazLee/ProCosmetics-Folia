@@ -28,8 +28,6 @@ import se.filledev.procosmetics.api.nms.NMSEntity;
 
 public class EtherealDragon implements MountBehavior {
 
-    private static final double SPEED_MULTIPLIER = 0.6d;
-
     private final Location location = new Location(null, 0.0d, 0.0d, 0.0d);
 
     @Override
@@ -60,7 +58,7 @@ public class EtherealDragon implements MountBehavior {
             return;
         }
         context.getPlayer().getLocation(location);
-        nmsEntity.move(location.getDirection().multiply(SPEED_MULTIPLIER));
+        nmsEntity.move(location.getDirection().multiply(context.getType().getMovementSpeed()));
         nmsEntity.setYaw(location.getYaw() - 180.0f);
         nmsEntity.setPitch(location.getPitch());
 

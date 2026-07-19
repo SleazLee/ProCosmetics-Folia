@@ -65,7 +65,7 @@ public class ResourceExporter {
                 }
                 File targetFile = targetPath.toFile();
 
-                if (!targetFile.exists()) {
+                if (!targetFile.exists() && !existsIgnoringCase(entryName, targetFile)) {
                     plugin.saveResource(entryName, false);
                 }
                 zip.closeEntry();
@@ -87,5 +87,23 @@ public class ResourceExporter {
             }
         }
         return EXPORT_FILES.contains(name);
+    }
+
+    private static boolean existsIgnoringCase(String entryName, File targetFile) {
+        if (!entryName.toLowerCase().startsWith("lang/")) {
+            return false;
+        }
+        File parent = targetFile.getParentFile();
+        File[] siblings = parent == null ? null : parent.listFiles();
+
+        if (siblings == null) {
+            return false;
+        }
+        for (File sibling : siblings) {
+            if (sibling.getName().equalsIgnoreCase(targetFile.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

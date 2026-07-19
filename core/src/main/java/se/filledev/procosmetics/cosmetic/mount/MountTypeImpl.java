@@ -20,6 +20,7 @@ package se.filledev.procosmetics.cosmetic.mount;
 import org.bukkit.entity.EntityType;
 import org.bukkit.inventory.ItemStack;
 import se.filledev.procosmetics.ProCosmeticsPlugin;
+import se.filledev.procosmetics.api.config.Config;
 import se.filledev.procosmetics.api.cosmetic.CosmeticRarity;
 import se.filledev.procosmetics.api.cosmetic.mount.Mount;
 import se.filledev.procosmetics.api.cosmetic.mount.MountBehavior;
@@ -34,6 +35,7 @@ import java.util.function.Supplier;
 public class MountTypeImpl extends CosmeticTypeImpl<MountType, MountBehavior> implements MountType {
 
     private final EntityType entityType;
+    private final double movementSpeed;
 
     public MountTypeImpl(String key,
                          CosmeticCategory<MountType, MountBehavior, ?> category,
@@ -44,9 +46,11 @@ public class MountTypeImpl extends CosmeticTypeImpl<MountType, MountBehavior> im
                          CosmeticRarity rarity,
                          ItemStack itemStack,
                          List<String> treasureChests,
-                         EntityType entityType) {
+                         EntityType entityType,
+                         double movementSpeed) {
         super(key, category, behaviorFactory, enabled, purchasable, cost, rarity, itemStack, treasureChests);
         this.entityType = entityType;
+        this.movementSpeed = movementSpeed;
     }
 
     @Override
@@ -59,9 +63,15 @@ public class MountTypeImpl extends CosmeticTypeImpl<MountType, MountBehavior> im
         return entityType;
     }
 
+    @Override
+    public double getMovementSpeed() {
+        return movementSpeed;
+    }
+
     public static class BuilderImpl extends CosmeticTypeImpl.BuilderImpl<MountType, MountBehavior, MountType.Builder> implements MountType.Builder {
 
         private EntityType entityType;
+        private double movementSpeed;
 
         public BuilderImpl(String key, CosmeticCategory<MountType, MountBehavior, ?> category) {
             super(key, category);
@@ -72,8 +82,26 @@ public class MountTypeImpl extends CosmeticTypeImpl<MountType, MountBehavior> im
             return this;
         }
 
+        @Override
+        public MountType.Builder readFromConfig() {
+            super.readFromConfig();
+
+            Config config = category.getConfig();
+            String path = getPath();
+
+            movementSpeed = config.getDouble(path + "movement_speed");
+
+            return this;
+        }
+
         public MountType.Builder entityType(EntityType entityType) {
             this.entityType = entityType;
+            return this;
+        }
+
+        @Override
+        public MountType.Builder movementSpeed(double movementSpeed) {
+            this.movementSpeed = movementSpeed;
             return this;
         }
 
@@ -88,7 +116,8 @@ public class MountTypeImpl extends CosmeticTypeImpl<MountType, MountBehavior> im
                     rarity,
                     itemStack,
                     treasureChests,
-                    entityType
+                    entityType,
+                    movementSpeed
             );
         }
     }

@@ -1,46 +1,18 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.apache.tools.ant.filters.ReplaceTokens
 import java.net.URI
-import java.net.HttpURLConnection
 
 plugins {
     java
-    id("com.gradleup.shadow") version "9.3.1"
-    id("com.diffplug.spotless") version "8.4.0"
+    id("com.gradleup.shadow") version "9.4.2"
+    id("com.diffplug.spotless") version "8.7.0"
 }
 
 group = "se.filledev"
-version = "2.0.4"
+version = "2.0.6"
 
-val paperRepoUrl = "https://repo.papermc.io/repository/maven-public/"
-
-fun resolvePaperApiVersion(candidates: List<String>): String {
-    for (candidate in candidates) {
-        val pomUrl = "$paperRepoUrl/io/papermc/paper/paper-api/$candidate/paper-api-$candidate.pom"
-        try {
-            val connection = URI(pomUrl).toURL().openConnection() as HttpURLConnection
-            connection.requestMethod = "HEAD"
-            connection.connectTimeout = 4000
-            connection.readTimeout = 4000
-            connection.instanceFollowRedirects = true
-            connection.connect()
-            if (connection.responseCode in 200..299) {
-                return candidate
-            }
-        } catch (_: Exception) {
-            // ignore and try the next candidate
-        }
-    }
-    return candidates.first()
-}
-
-extra["paperApiVersion_foliaApi"] = resolvePaperApiVersion(
-    listOf(
-        "1.21.11-R0.1-SNAPSHOT",
-        "1.21.11-R0.2-SNAPSHOT",
-        "1.21.11-R0.3-SNAPSHOT"
-    )
-)
+extra["corePaperApiVersion"] = "26.1.2.build.69-stable"
+extra["paperApiVersion"] = "26.2.build.+"
 
 java {
     toolchain {
@@ -143,7 +115,7 @@ subprojects {
             target("src/**/*.java")
             trimTrailingWhitespace()
             endWithNewline()
-            removeUnusedImports()
+            //removeUnusedImports()
             //palantirJavaFormat("2.81.0").style("GOOGLE").formatJavadoc(true)
             licenseHeaderFile(rootProject.file("config/spotless/license-header.txt"), "package ")
                 .updateYearWithLatest(true)

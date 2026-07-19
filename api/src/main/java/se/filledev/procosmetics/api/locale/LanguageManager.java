@@ -32,7 +32,7 @@ public interface LanguageManager extends Translator {
     /**
      * The default locale used as fallback when translations are not found.
      */
-    String DEFAULT_LOCALE = "en_us";
+    String DEFAULT_LOCALE = "en_US";
 
     /**
      * Translates a key to a list of strings in the specified locale.

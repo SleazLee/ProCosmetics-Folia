@@ -25,12 +25,11 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.Nullable;
 import se.filledev.procosmetics.api.nms.EntityTracker;
 import se.filledev.procosmetics.api.nms.NMSEntity;
 import se.filledev.procosmetics.nms.entitytype.CachedEntityType;
 import se.filledev.procosmetics.util.Scheduler;
-
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 

@@ -32,7 +32,7 @@ public interface Translator {
     /**
      * Get the locale for this translation provider.
      *
-     * @return the locale string (e.g., "en_us")
+     * @return the locale string
      */
     String getLocale();
 
@@ -42,7 +42,7 @@ public interface Translator {
      * This can be used to dynamically change the active language at runtime,
      * for example when a player switches their preferred language.
      *
-     * @param locale the new locale string (e.g., "en_us")
+     * @param locale the new locale string
      */
     void setLocale(String locale);
 

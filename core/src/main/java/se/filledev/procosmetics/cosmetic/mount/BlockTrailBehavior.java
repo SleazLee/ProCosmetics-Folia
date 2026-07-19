@@ -56,14 +56,15 @@ public abstract class BlockTrailBehavior implements MountBehavior {
 
     @Override
     public void onUpdate(CosmeticContext<MountType> context, Entity entity, NMSEntity nmsEntity) {
-        if (blockTrailEnabled && context.getPlayer().getVehicle() == entity) {
-            if (entity.isOnGround()) {
-                for (Block block : MathUtil.getIn3DRadius(entity.getLocation(location).subtract(0.0d, 1.0d, 0.0d), getBlockTrailRadius())) {
-                    ItemStack itemStack = MathUtil.getRandomElement(getTrailBlocks());
+        if (blockTrailEnabled
+                && context.getPlayer().getVehicle() == entity
+                && context.getUser().isMoving()
+                && entity.isOnGround()) {
+            for (Block block : MathUtil.getIn3DRadius(entity.getLocation(location).subtract(0.0d, 1.0d, 0.0d), getBlockTrailRadius())) {
+                ItemStack itemStack = MathUtil.getRandomElement(getTrailBlocks());
 
-                    if (itemStack != null) {
-                        PLUGIN.getBlockRestoreManager().setFakeBlock(block, itemStack, true, 2);
-                    }
+                if (itemStack != null) {
+                    PLUGIN.getFakeBlockManager().setFakeBlock(block, itemStack, false, 40);
                 }
             }
         }

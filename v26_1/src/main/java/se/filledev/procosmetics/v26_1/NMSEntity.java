@@ -26,7 +26,7 @@ import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.animal.equine.Horse;
+import net.minecraft.world.entity.animal.equine.AbstractHorse;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -64,7 +64,7 @@ import java.util.Set;
 
 public class NMSEntity extends NMSEntityImpl<Packet<? super ClientGamePacketListener>> {
 
-    private static final LegacyComponentSerializer SERIALIZER = LegacyComponentSerializer.legacySection();
+    private static final LegacyComponentSerializer LEGACY_SERIALIZER = LegacyComponentSerializer.legacySection();
     private static final List<Pose> POSES = List.of(Pose.values());
 
     private static Constructor<FallingBlockEntity> fallingBlockConstructor;
@@ -456,12 +456,12 @@ public class NMSEntity extends NMSEntityImpl<Packet<? super ClientGamePacketList
     @Override
     public void setCustomName(@Nullable Component component) {
         entity.setCustomNameVisible(true);
-        entity.setCustomName(CraftChatMessage.fromStringOrNull(SERIALIZER.serialize(component)));
+        entity.setCustomName(CraftChatMessage.fromStringOrNull(LEGACY_SERIALIZER.serialize(component)));
     }
 
     @Override
-    public void setLeashHolder(@Nullable org.bukkit.entity.Entity entity2) {
-        leashHolder = ((CraftEntity) entity2).getHandle();
+    public void setLeashHolder(@Nullable org.bukkit.entity.Entity holder) {
+        leashHolder = ((CraftEntity) holder).getHandle();
     }
 
     @Override
@@ -506,7 +506,7 @@ public class NMSEntity extends NMSEntityImpl<Packet<? super ClientGamePacketList
 
     @Override
     public void setHorseStanding(boolean standing) {
-        if (entity instanceof Horse horse) {
+        if (entity instanceof AbstractHorse horse) {
             if (standing) {
                 horse.setStanding(1);
             } else {
@@ -531,14 +531,10 @@ public class NMSEntity extends NMSEntityImpl<Packet<? super ClientGamePacketList
 
     @Override
     public void removePathfinder() {
-        try {
-            Mob entityInsentient = (Mob) entity;
-
-            entityInsentient.goalSelector.getAvailableGoals().clear();
-            entityInsentient.targetSelector.getAvailableGoals().clear();
+        if (entity instanceof Mob mob) {
+            mob.goalSelector.getAvailableGoals().clear();
+            mob.targetSelector.getAvailableGoals().clear();
             stopNavigation();
-        } catch (Exception e) {
-            e.printStackTrace();
         }
     }
 

@@ -22,12 +22,13 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.block.Block;
-import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Matrix4f;
 import se.filledev.procosmetics.api.cosmetic.CosmeticContext;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetBehavior;
 import se.filledev.procosmetics.api.cosmetic.gadget.GadgetType;
@@ -57,17 +58,21 @@ public class DiscoBall implements GadgetBehavior {
     public InteractionResult onInteract(CosmeticContext<GadgetType> context, Action action, @Nullable Block clickedBlock, @Nullable Vector clickedPosition) {
         Player player = context.getPlayer();
         location = player.getLocation().add(0.0d, HEIGHT_OFFSET, 0.0d);
+        location.setPitch(0.0f);
 
-        nmsEntity = context.getPlugin().getNMSManager().createEntity(player.getWorld(), EntityType.ARMOR_STAND);
+        nmsEntity = context.getPlugin().getNMSManager().createEntity(player.getWorld(), EntityType.ITEM_DISPLAY);
         positionBallBeforeBukkitSetup(nmsEntity, location);
 
-        if (nmsEntity.getBukkitEntity() instanceof ArmorStand armorStand) {
-            armorStand.setInvisible(true);
-            armorStand.setArms(false);
+        if (nmsEntity.getBukkitEntity() instanceof ItemDisplay itemDisplay) {
+            itemDisplay.setItemStack(Materials.getRandomStainedGlassItem());
+            itemDisplay.setTeleportDuration(1);
+            Matrix4f matrix = new Matrix4f();
+            matrix.scale(0.5f);
+            itemDisplay.setTransformationMatrix(matrix);
         }
         nmsEntity.getTracker().startTracking();
 
-        Scheduler.runLater(location, () -> onUnequip(context), context.getType().getDurationTicks());
+        Scheduler.runLaterOwned(nmsEntity, () -> onUnequip(context), context.getType().getDurationTicks());
         return InteractionResult.success();
     }
 
@@ -77,15 +82,15 @@ public class DiscoBall implements GadgetBehavior {
             return;
         }
         NMSEntity currentEntity = nmsEntity;
-        Scheduler.run(location, () -> updateDiscoBall(currentEntity));
+        Scheduler.runOwned(currentEntity, () -> updateDiscoBall(currentEntity));
     }
 
     /**
      * Updates the virtual disco ball from the ball's anchored region.
      *
-     * <p>The owner may leave the placement region while the timed effect is still running. Head
-     * pose, equipment, and particles are tied to the virtual armor stand location, so the update is
-     * dispatched to that region instead of following the player.</p>
+     * <p>The owner may leave the placement region while the timed effect is still running. Display
+     * state and particles are tied to the virtual item display, so the update is dispatched through
+     * the display's owning region instead of following the player.</p>
      *
      * @param currentEntity the disco ball entity captured before the scheduler hop
      */
@@ -93,15 +98,16 @@ public class DiscoBall implements GadgetBehavior {
         if (nmsEntity != currentEntity || location == null) {
             return;
         }
-        currentEntity.setHeadPose(0.0f, ROTATION_PER_TICK * tick, 0.0f);
-        currentEntity.sendEntityMetadataPacket();
+        Location effectCenter = currentEntity.getPreviousLocation().clone();
+        effectCenter.setYaw(ROTATION_PER_TICK * tick);
+        currentEntity.sendPositionRotationPacket(effectCenter);
 
         if (tick % 4 == 0) {
-            currentEntity.setHelmet(Materials.getRandomStainedGlassItem());
-            currentEntity.sendEntityEquipmentPacket();
+            if (currentEntity.getBukkitEntity() instanceof ItemDisplay itemDisplay) {
+                itemDisplay.setItemStack(Materials.getRandomStainedGlassItem());
+            }
+            currentEntity.sendEntityMetadataPacket();
         }
-        Location effectCenter = currentEntity.getPreviousLocation().clone().add(0.0d, 1.6d, 0.0d);
-
         Location randomLocation = effectCenter.clone().add(
                 MathUtil.randomRange(-RANGE, RANGE),
                 MathUtil.randomRange(-RANGE, RANGE),
@@ -130,20 +136,21 @@ public class DiscoBall implements GadgetBehavior {
 
     @Override
     public void onUnequip(CosmeticContext<GadgetType> context) {
-        if (nmsEntity != null) {
-            NMSEntity currentEntity = nmsEntity;
-            nmsEntity = null;
-            Location cleanupLocation = location;
-            location = null;
-            Scheduler.run(cleanupLocation, () -> currentEntity.getTracker().destroy());
+        NMSEntity currentEntity = nmsEntity;
+
+        if (currentEntity == null) {
+            return;
         }
+        nmsEntity = null;
+        location = null;
+        Scheduler.runOwned(currentEntity, () -> currentEntity.getTracker().destroy());
     }
 
     /**
-     * Positions the virtual armor stand before Bukkit armor-stand setters run.
+     * Positions the virtual item display before Bukkit display setters run.
      *
      * <p>Folia validates Bukkit wrapper state against the entity's current region. Moving the
-     * virtual helper to the disco ball location first keeps invisibility and arm-state setup in the
+     * virtual helper to the disco ball location first keeps item and transformation setup in the
      * correct region.</p>
      *
      * @param entity the virtual disco ball entity

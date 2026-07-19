@@ -1,11 +1,11 @@
 plugins {
     id("java-library")
     id("signing")
-    id("com.vanniktech.maven.publish") version "0.36.0"
+    id("com.vanniktech.maven.publish") version "0.37.0"
 }
 
 group = "se.filledev"
-version = "2.0.0"
+version = "2.0.1"
 
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
@@ -17,7 +17,7 @@ repositories {
 
 dependencies {
     // Spigot API
-    compileOnly("org.spigotmc:spigot-api:26.1.1-R0.1-SNAPSHOT")
+    compileOnly("org.spigotmc:spigot-api:26.2-R0.1-SNAPSHOT")
 
     compileOnlyApi("net.kyori:adventure-api:4.26.1")
     compileOnlyApi("net.kyori:adventure-text-minimessage:4.26.1")

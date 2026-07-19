@@ -18,7 +18,6 @@
 package se.filledev.procosmetics.treasure.animation;
 
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
 import net.kyori.adventure.util.Ticks;
 import org.bukkit.*;
@@ -45,6 +44,7 @@ import se.filledev.procosmetics.api.treasure.loot.LootTable;
 import se.filledev.procosmetics.api.user.User;
 import se.filledev.procosmetics.api.util.structure.StructureData;
 import se.filledev.procosmetics.api.util.structure.type.BlockStructure;
+import se.filledev.procosmetics.util.FastMathUtil;
 import se.filledev.procosmetics.util.LocationUtil;
 import se.filledev.procosmetics.util.MathUtil;
 import se.filledev.procosmetics.util.MetadataUtil;
@@ -57,7 +57,6 @@ import java.util.logging.Level;
 
 public abstract class TreasureChestAnimationImpl implements TreasureChestAnimation, Listener, Runnable {
 
-    private static final LegacyComponentSerializer SERIALIZER = LegacyComponentSerializer.legacySection();
     private static final Title.Times DEFAULT_TIMES = Title.Times.times(Ticks.duration(5), Ticks.duration(50), Ticks.duration(5));
     public static final int MAX_TIME_BEFORE_FORCE_OPEN = 1000;
 
@@ -208,12 +207,12 @@ public abstract class TreasureChestAnimationImpl implements TreasureChestAnimati
         NMSEntity text = plugin.getNMSManager().createEntity(location.getWorld(), EntityType.TEXT_DISPLAY);
 
         if (text.getBukkitEntity() instanceof TextDisplay textDisplay) {
-            textDisplay.setText(SERIALIZER.serialize(user.translate(
+            plugin.getPlatformAdapter().setText(textDisplay, user.translate(
                     "treasure_chest.open.hologram",
                     Placeholder.unparsed("category", generatedLoot.getCategory().getName(user)),
                     Placeholder.component("loot", generatedLoot.getResolvedName(user)),
                     rarity.getResolvers(user)
-            )));
+            ));
             textDisplay.setBillboard(TextDisplay.Billboard.CENTER);
             textDisplay.setTeleportDuration(2);
         }
@@ -278,7 +277,7 @@ public abstract class TreasureChestAnimationImpl implements TreasureChestAnimati
             Matrix4f transformationMatrix = new Matrix4f();
             transformationMatrix.identity()
                     //.scale(scale)
-                    //.rotateY(radians)
+                    .rotateY(FastMathUtil.PI)
                     .translate(-0.5f, 0.0f, -0.5f);
             blockDisplay.setTransformationMatrix(transformationMatrix);
         }

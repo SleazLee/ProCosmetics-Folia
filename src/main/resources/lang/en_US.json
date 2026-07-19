@@ -19,6 +19,7 @@
   "cosmetic.gadgets.unequip": "<gray>You unequipped <yellow><cosmetic></yellow>.</gray>",
   "cosmetic.gadgets.cooldown": "<green><gadget></green> <white><cooldown_bar></white> <white><cooldown_duration>s</white>",
   "cosmetic.gadgets.cooldown.ready": "<green><gadget></green> <gray>is now recharged!</gray>",
+  "cosmetic.gadgets.click_player": "<red>Click on a player to use this gadget!</red>",
 
   "cosmetic.miniatures.equip": "<gray>You spawned <yellow><cosmetic></yellow>.</gray>",
   "cosmetic.miniatures.unequip": "<gray>You despawned <yellow><cosmetic></yellow>.</gray>",

@@ -22,14 +22,13 @@ import net.kyori.adventure.text.minimessage.tag.Tag;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Color;
 import org.bukkit.FireworkEffect;
+import org.jetbrains.annotations.Nullable;
 import se.filledev.procosmetics.ProCosmeticsPlugin;
 import se.filledev.procosmetics.api.config.Config;
 import se.filledev.procosmetics.api.cosmetic.CosmeticRarity;
 import se.filledev.procosmetics.api.cosmetic.registry.CosmeticRarityRegistry;
 import se.filledev.procosmetics.cosmetic.CosmeticRarityImpl;
 import se.filledev.procosmetics.util.EnumUtil;
-
-import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
@@ -48,12 +47,18 @@ public class CosmeticRarityRegistryImpl implements CosmeticRarityRegistry {
     @Override
     public void load() {
         rarities.clear();
+        sortedRarities.clear();
         fallbackRarity = null;
 
         Config config = plugin.getConfigManager().register("rarities");
 
         for (String key : config.getSectionKeys("rarities")) {
             String path = "rarities." + key + ".";
+            boolean enabled = config.getBoolean(path + "enabled");
+
+            if (!enabled) {
+                continue;
+            }
             int priority = config.getInt(path + "priority");
             TagResolver primaryColor = TagResolver.resolver("rarity_primary_color", Tag.styling(TextColor.fromHexString(config.getString(path + "colors.primary"))));
             TagResolver secondaryColor = TagResolver.resolver("rarity_secondary_color", Tag.styling(TextColor.fromHexString(config.getString(path + "colors.secondary"))));

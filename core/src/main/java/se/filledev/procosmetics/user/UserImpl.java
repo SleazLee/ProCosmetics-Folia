@@ -74,7 +74,7 @@ public class UserImpl implements User {
     }
 
     private Audience getAudience() {
-        return ((ProCosmeticsPlugin) plugin).adventure().player(uuid);
+        return plugin.getPlatformAdapter().audience(getPlayer());
     }
 
     @Override

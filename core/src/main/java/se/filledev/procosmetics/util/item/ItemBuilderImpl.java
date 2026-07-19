@@ -18,7 +18,6 @@
 package se.filledev.procosmetics.util.item;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -53,7 +52,6 @@ public class ItemBuilderImpl implements ItemBuilder {
             .filter(flag -> !flag.name().toLowerCase().contains("lore")) // HIDE_LORE does not exist on Paper
             .toArray(ItemFlag[]::new);
 
-    private static final LegacyComponentSerializer SERIALIZER = LegacyComponentSerializer.legacySection();
     private static final ProCosmeticsPlugin PLUGIN = ProCosmeticsPlugin.getPlugin();
 
     private final ItemStack itemStack;
@@ -135,40 +133,28 @@ public class ItemBuilderImpl implements ItemBuilder {
 
     @Override
     public <T, Z> ItemBuilderImpl setCustomData(NamespacedKey key, PersistentDataType<T, Z> type, Z value) {
-        return modifyItemMeta(meta -> {
-            meta.getPersistentDataContainer().set(key, type, value);
-        });
+        return modifyItemMeta(meta -> meta.getPersistentDataContainer().set(key, type, value));
     }
 
     @Override
     public ItemBuilderImpl setDisplayName(@Nullable Component displayName) {
         return modifyItemMeta(meta -> {
             if (displayName != null) {
-                meta.setItemName(SERIALIZER.serialize(displayName));
+                PLUGIN.getPlatformAdapter().setDisplayName(meta, displayName);
             }
         });
     }
 
     @Override
     public Component getDisplayName() {
-        ItemMeta itemMeta = itemStack.getItemMeta();
-
-        if (itemMeta != null && itemMeta.hasDisplayName()) {
-            return SERIALIZER.deserialize(itemMeta.getDisplayName());
-        }
-        return Component.empty();
+        return PLUGIN.getPlatformAdapter().getDisplayName(itemStack.getItemMeta());
     }
 
     @Override
     public ItemBuilderImpl setLore(@Nullable List<Component> lines) {
         return modifyItemMeta(meta -> {
             if (lines != null && !lines.isEmpty()) {
-                List<String> processedLore = new ArrayList<>();
-
-                for (Component component : lines) {
-                    processedLore.add(SERIALIZER.serialize(component));
-                }
-                meta.setLore(processedLore);
+                PLUGIN.getPlatformAdapter().setLore(meta, lines);
             } else {
                 meta.setLore(null);
             }
@@ -195,27 +181,9 @@ public class ItemBuilderImpl implements ItemBuilder {
         return setLore(currentLore);
     }
 
-    private List<String> getLoreList() {
-        ItemMeta itemMeta = itemStack.getItemMeta();
-
-        if (itemMeta != null && itemMeta.hasLore()) {
-            return itemMeta.getLore();
-        }
-        return null;
-    }
-
     @Override
     public List<Component> getLore() {
-        List<String> lore = getLoreList();
-
-        if (lore != null) {
-            List<Component> components = new ArrayList<>();
-            for (String line : lore) {
-                components.add(SERIALIZER.deserialize(line));
-            }
-            return components;
-        }
-        return null;
+        return PLUGIN.getPlatformAdapter().getLore(itemStack.getItemMeta());
     }
 
     @Override
@@ -238,9 +206,7 @@ public class ItemBuilderImpl implements ItemBuilder {
 
     @Override
     public ItemBuilderImpl setMaxSize(int amount) {
-        return modifyItemMeta(meta -> {
-            meta.setMaxStackSize(amount);
-        });
+        return modifyItemMeta(meta -> meta.setMaxStackSize(amount));
     }
 
     @Override
@@ -333,11 +299,8 @@ public class ItemBuilderImpl implements ItemBuilder {
         ItemMeta itemMeta = itemStack.getItemMeta();
 
         if (itemMeta != null) {
-            //Bukkit.broadcastMessage("1. Before is null? " + itemMeta.getLore());
             modifier.accept(itemMeta);
-            //Bukkit.broadcastMessage("2. Modified meta lore null? " + itemMeta.getLore());
             itemStack.setItemMeta(itemMeta);
-            //Bukkit.broadcastMessage("3. After set item meta lore: " + itemStack.getItemMeta().getLore());
         }
         return this;
     }
@@ -399,10 +362,9 @@ public class ItemBuilderImpl implements ItemBuilder {
     @Override
     public String toString() {
         return "ItemBuilder{" +
-                "type=" + itemStack.getType() +
-                ", amount=" + itemStack.getAmount() +
-                ", displayName='" + getDisplayName() + '\'' +
-                '}';
+                "item=" + itemStack.toString() +
+                ", slot=" + slot
+                + "}";
     }
 
     @Override

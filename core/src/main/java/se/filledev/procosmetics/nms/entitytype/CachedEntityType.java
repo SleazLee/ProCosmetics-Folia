@@ -19,57 +19,57 @@ package se.filledev.procosmetics.nms.entitytype;
 
 import org.bukkit.entity.EntityType;
 import org.jetbrains.annotations.Nullable;
-import se.filledev.procosmetics.ProCosmeticsPlugin;
 import se.filledev.procosmetics.util.ReflectionUtil;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class CachedEntityType {
 
-    private static final String PREFIX = "[CACHE ENTITY] ";
-
-    private Object entityTypeObject;
+    private final Object entityTypeObject;
 
     CachedEntityType(EntityType entityType) {
-        Logger logger = ProCosmeticsPlugin.getPlugin().getLogger();
-
         if (entityType == null) {
-            logger.log(Level.WARNING, PREFIX + " EntityType is null.");
-            return;
+            throw new IllegalArgumentException("EntityType is null.");
         }
 
         try {
-            Class<?> entityTypesClass = ReflectionUtil.getNMSClass("world.entity.EntityType");
+            Class<?> identifierClass = ReflectionUtil.getNMSClass("resources.Identifier");
 
-            if (entityTypesClass == null) {
-                logger.log(Level.WARNING, PREFIX + " EntityTypesClass is null.");
-                return;
+            if (identifierClass == null) {
+                throw new IllegalStateException("Identifier class is null.");
             }
-            Method method = ReflectionUtil.getMethod(entityTypesClass, "byString", String.class);
+            String entityName = entityType.getTranslationKey()
+                    .toLowerCase()
+                    .replace("entity.minecraft.", "");
 
-            if (method == null) {
-                logger.log(Level.WARNING, PREFIX + " Method is null.");
-                return;
+            Method withDefaultNamespace = identifierClass.getMethod("withDefaultNamespace", String.class);
+            Object identifier = withDefaultNamespace.invoke(null, entityName);
+
+            if (identifier == null) {
+                throw new IllegalStateException("Identifier is null.");
             }
-            Object result = method.invoke(null, entityType.getTranslationKey().toLowerCase().replace("entity.minecraft.", ""));
+            Class<?> builtInRegistriesClass = ReflectionUtil.getNMSClass("core.registries.BuiltInRegistries");
+
+            if (builtInRegistriesClass == null) {
+                throw new IllegalStateException("BuiltInRegistries class is null.");
+            }
+            Field entityTypeRegistryField = builtInRegistriesClass.getField("ENTITY_TYPE");
+            Object registry = entityTypeRegistryField.get(null);
+
+            if (registry == null) {
+                throw new IllegalStateException("ENTITY_TYPE registry is null.");
+            }
+            Method getValue = registry.getClass().getMethod("getValue", identifierClass);
+            Object result = getValue.invoke(registry, identifier);
 
             if (result == null) {
-                logger.log(Level.WARNING, PREFIX + " Method invocation returned null.");
-                return;
+                throw new IllegalStateException("Registry lookup returned null for entity type: " + entityName);
             }
-            Optional<?> optional = (Optional<?>) result;
-
-            if (optional.isEmpty()) {
-                logger.log(Level.WARNING, PREFIX + " Optional is empty.");
-                return;
-            }
-            entityTypeObject = optional.get();
-        } catch (IllegalAccessException | InvocationTargetException e) {
-            logger.log(Level.SEVERE, "Failed to cache entity type " + entityType.name() + " via reflection.", e);
+            entityTypeObject = result;
+        } catch (NoSuchMethodException | NoSuchFieldException | IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException("Failed to cache entity type " + entityType.name() + " via reflection.", e);
         }
     }
 

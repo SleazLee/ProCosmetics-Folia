@@ -19,7 +19,6 @@ package se.filledev.procosmetics.cosmetic.pet;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
@@ -43,8 +42,6 @@ import se.filledev.procosmetics.util.MathUtil;
 import se.filledev.procosmetics.util.Scheduler;
 
 public class PetImpl extends CosmeticImpl<PetType, PetBehavior> implements Pet {
-
-    private static final LegacyComponentSerializer SERIALIZER = LegacyComponentSerializer.legacySection();
 
     protected NMSEntity nmsEntity;
     protected Entity entity;
@@ -92,6 +89,40 @@ public class PetImpl extends CosmeticImpl<PetType, PetBehavior> implements Pet {
 
     @Override
     public void spawn(Location location) {
+        Location targetLocation = location.clone();
+        Entity currentEntity = entity;
+        NMSEntity currentNmsEntity = nmsEntity;
+
+        if (currentEntity == null) {
+            finishSpawn(targetLocation);
+            return;
+        }
+        boolean requireEquipped = isEquipped();
+        Runnable cleanup = () -> {
+            if (entity != currentEntity || nmsEntity != currentNmsEntity) {
+                return;
+            }
+            behavior.onUnequip(this);
+            entity = null;
+            nmsEntity = null;
+            cleanupPetEntity(currentEntity, currentNmsEntity);
+
+            Scheduler.run(targetLocation, () -> {
+                if (entity != null || requireEquipped && !isEquipped()) {
+                    return;
+                }
+                finishSpawn(targetLocation);
+            });
+        };
+
+        if (Scheduler.isFolia()) {
+            Scheduler.run(currentEntity, cleanup);
+        } else {
+            cleanup.run();
+        }
+    }
+
+    private void finishSpawn(Location location) {
         if (!spawnAt(location) && isEquipped()) {
             unequip(false, false);
         }
@@ -111,15 +142,13 @@ public class PetImpl extends CosmeticImpl<PetType, PetBehavior> implements Pet {
     private boolean spawnAt(Location location) {
         this.location = location.clone();
 
-        despawn();
-
         entity = CosmeticEntitySpawner.spawnLiving(location, cosmeticType.getEntityType(), entity -> {
             Component nameTag = user.translate(
                     "cosmetic.pets.name_tag",
                     Placeholder.unparsed("player", player.getName()),
                     Placeholder.unparsed("cosmetic", cosmeticType.getName(user))
             );
-            entity.setCustomName(SERIALIZER.serialize(nameTag));
+            plugin.getPlatformAdapter().setCustomName(entity, nameTag);
             entity.setCustomNameVisible(!nameTag.equals(Component.empty()));
             entity.setSilent(true);
 
@@ -167,14 +196,16 @@ public class PetImpl extends CosmeticImpl<PetType, PetBehavior> implements Pet {
         entity = null;
 
         if (currentEntity != null) {
-            Scheduler.run(currentEntity, () -> {
-                if (currentNMSEntity != null) {
-                    currentNMSEntity.stopNavigation();
-                }
-                if (currentEntity.isValid()) {
-                    currentEntity.remove();
-                }
-            });
+            Scheduler.run(currentEntity, () -> cleanupPetEntity(currentEntity, currentNMSEntity));
+        }
+    }
+
+    private void cleanupPetEntity(Entity currentEntity, NMSEntity currentNMSEntity) {
+        if (currentNMSEntity != null) {
+            currentNMSEntity.stopNavigation();
+        }
+        if (currentEntity.isValid()) {
+            currentEntity.remove();
         }
     }
 

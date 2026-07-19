@@ -155,7 +155,7 @@ settings:
   enable_metrics: true
 
   # Sets the default language used in the plugin.
-  default_language: "en_us"
+  default_language: "en_US"
 
   # Saves players' last equipped cosmetics to automatically re-equip them upon their next login.
   restore_cosmetics: true

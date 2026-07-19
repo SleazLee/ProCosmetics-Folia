@@ -21,11 +21,14 @@ import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
-import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Horse;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.Transformation;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 import se.filledev.procosmetics.api.cosmetic.CosmeticContext;
 import se.filledev.procosmetics.api.cosmetic.mount.MountType;
 import se.filledev.procosmetics.api.nms.NMSEntity;
@@ -36,8 +39,9 @@ import java.util.List;
 
 public class Unicorn extends BlockTrailBehavior {
 
-    private static final double FORWARD_OFFSET = 1.1d;
-    private static final List<Color> COLORS = List.of(
+    private static final ItemStack SADDLE_ITEM = new ItemStack(Material.SADDLE);
+    private static final ItemStack HORN_ITEM = new ItemStack(Material.END_ROD);
+    private static final List<Color> RAINBOW_COLORS = List.of(
             Color.RED,
             Color.ORANGE,
             Color.YELLOW,
@@ -47,11 +51,33 @@ public class Unicorn extends BlockTrailBehavior {
             Color.BLUE,
             Color.PURPLE
     );
-    private static final List<ItemStack> BLOCKS = List.of(
-            new ItemStack(Material.PINK_WOOL),
-            new ItemStack(Material.PURPLE_WOOL)
+    private static final List<ItemStack> TRAIL_BLOCKS = List.of(
+            new ItemStack(Material.PINK_CONCRETE),
+            new ItemStack(Material.MAGENTA_CONCRETE)
     );
-    private static final ItemStack BLAZE_ROD_ITEM = new ItemStack(Material.BLAZE_ROD);
+
+    private static final int TELEPORT_DURATION_TICKS = 1;
+
+    // Horn placement
+    private static final Vector3f HORN_TRANSLATION = new Vector3f(0.0f, 0.85f, 1.2f);
+    private static final float HORN_PITCH = (float) (Math.PI / 6);
+    private static final float HORN_YAW = (float) (-Math.PI / 2);
+    private static final float HORN_SCALE = 0.6f;
+
+    // Rainbow trail
+    private static final double RAINBOW_BEHIND_OFFSET = -0.7d;
+    private static final double RAINBOW_HEIGHT_OFFSET = 1.4d;
+    private static final double RAINBOW_COLOR_SPACING = 0.08d;
+    private static final int RAINBOW_PARTICLE_COUNT = 2;
+    private static final float RAINBOW_PARTICLE_SIZE = 1.0f;
+
+    // Head-tracking & effects
+    private static final float PITCH_FOLLOW_FACTOR = 0.5f;
+    private static final int FIREWORK_INTERVAL_TICKS = 10;
+    private static final int FIREWORK_PARTICLE_COUNT = 5;
+    private static final double FIREWORK_HEIGHT_OFFSET = 1.0d;
+    private static final double FIREWORK_SPREAD_HORIZONTAL = 1.0d;
+    private static final double FIREWORK_SPREAD_VERTICAL = 1.5d;
 
     private int ticks;
     private NMSEntity horn;
@@ -66,35 +92,22 @@ public class Unicorn extends BlockTrailBehavior {
             horse.setJumpStrength(1.0d);
             horse.setAdult();
             horse.setTamed(true);
-            horse.getInventory().setSaddle(new ItemStack(Material.SADDLE));
+            horse.getInventory().setSaddle(SADDLE_ITEM);
         }
-        horn = context.getPlugin().getNMSManager().createEntity(entity.getWorld(), EntityType.ARMOR_STAND);
+        horn = context.getPlugin().getNMSManager().createEntity(entity.getWorld(), EntityType.ITEM_DISPLAY);
+
         if (horn == null) {
             return;
         }
-        positionHornBeforeArmorStandSetup(horn, entity.getLocation());
-        if (horn.getBukkitEntity() instanceof ArmorStand armorStand) {
-            armorStand.setInvisible(true);
-            armorStand.setArms(false);
-            armorStand.setMarker(false);
-        }
-        horn.setHelmet(BLAZE_ROD_ITEM);
-        horn.getTracker().startTracking();
-    }
+        horn.setPositionRotation(entity.getLocation());
 
-    /**
-     * Moves the virtual horn onto the mount's region before touching Bukkit armor-stand state.
-     *
-     * <p>Virtual NMS helper entities start at {@code 0,0,0}. On Folia, calling
-     * Bukkit setters such as {@link ArmorStand#setInvisible(boolean)} before the
-     * helper is positioned can fail because the current mount thread may not own
-     * the helper's initial region.</p>
-     *
-     * @param horn the virtual horn entity
-     * @param location the current mount location
-     */
-    private void positionHornBeforeArmorStandSetup(NMSEntity horn, Location location) {
-        horn.setPositionRotation(location);
+        if (horn.getBukkitEntity() instanceof ItemDisplay itemDisplay) {
+            itemDisplay.setItemStack(HORN_ITEM);
+            itemDisplay.setTeleportDuration(TELEPORT_DURATION_TICKS);
+            applyHornTransformation(itemDisplay);
+            entity.addPassenger(itemDisplay);
+        }
+        horn.getTracker().startTracking();
     }
 
     @Override
@@ -102,29 +115,58 @@ public class Unicorn extends BlockTrailBehavior {
         super.onUpdate(context, entity, nmsEntity);
 
         entity.getLocation(location);
-        location.subtract(0.0d, 0.2d, 0.0d);
-        location.setYaw(location.getYaw() + 90.0f);
 
-        horn.sendPositionRotationPacket(MathUtil.getDirectionalLocation(location, FORWARD_OFFSET, 0.28d));
+        // Scale the pitch to better align the horns with the horse's head movement.
+        // Ideally, this should be handled by updating the transforms directly.
+        location.setPitch(location.getPitch() * PITCH_FOLLOW_FACTOR);
+
+        if (horn != null) {
+            horn.sendPositionRotationPacket(location);
+        }
 
         if (context.getUser().isMoving() && context.getPlayer().getVehicle() == entity) {
-            Location location2 = MathUtil.getDirectionalLocation(location, -1.0d, 0.0d);
-            location2.add(0.0d, 1.4d, 0.0d);
+            Location rainbowLocation = MathUtil.getDirectionalLocation(location, 0.0d, RAINBOW_BEHIND_OFFSET);
+            rainbowLocation.add(0.0d, RAINBOW_HEIGHT_OFFSET, 0.0d);
 
-            for (Color color : COLORS) {
-                location2.getWorld().spawnParticle(Particle.DUST, location2, 2, 0.0d, 0.0d, 0.0d, 0.0d, new Particle.DustOptions(color, 1.0f));
-                location2.setY(location2.getY() - 0.08d);
+            for (Color color : RAINBOW_COLORS) {
+                rainbowLocation.getWorld().spawnParticle(Particle.DUST,
+                        rainbowLocation,
+                        RAINBOW_PARTICLE_COUNT,
+                        0.0d,
+                        0.0d,
+                        0.0d,
+                        0.0d,
+                        new Particle.DustOptions(color, RAINBOW_PARTICLE_SIZE)
+                );
+                rainbowLocation.setY(rainbowLocation.getY() - RAINBOW_COLOR_SPACING);
             }
         }
 
-        if (ticks % 10 == 0) {
-            Location location = entity.getLocation().add(0.0d, 1.0d, 0.0d);
-            location.getWorld().spawnParticle(Particle.FIREWORK, location, 5, 1.0d, 1.5d, 1.0d, 0.0d);
+        if (ticks % FIREWORK_INTERVAL_TICKS == 0) {
+            Location fireworkLocation = entity.getLocation().add(0.0d, FIREWORK_HEIGHT_OFFSET, 0.0d);
+            fireworkLocation.getWorld().spawnParticle(Particle.FIREWORK,
+                    fireworkLocation,
+                    FIREWORK_PARTICLE_COUNT,
+                    FIREWORK_SPREAD_HORIZONTAL,
+                    FIREWORK_SPREAD_VERTICAL,
+                    FIREWORK_SPREAD_HORIZONTAL,
+                    0.0d
+            );
         }
 
         if (++ticks > 360) {
             ticks = 0;
         }
+    }
+
+    private void applyHornTransformation(ItemDisplay itemDisplay) {
+        Transformation transformation = new Transformation(
+                HORN_TRANSLATION,
+                new Quaternionf().rotateX(HORN_PITCH).rotateY(HORN_YAW),
+                new Vector3f(HORN_SCALE, HORN_SCALE, HORN_SCALE),
+                new Quaternionf()
+        );
+        itemDisplay.setTransformation(transformation);
     }
 
     @Override
@@ -144,6 +186,6 @@ public class Unicorn extends BlockTrailBehavior {
 
     @Override
     public List<ItemStack> getTrailBlocks() {
-        return BLOCKS;
+        return TRAIL_BLOCKS;
     }
 }
