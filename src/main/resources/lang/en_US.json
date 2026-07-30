@@ -2720,24 +2720,29 @@
   "cosmetic.particle_effects.demon_twist": "Demon Twist",
   "cosmetic.particle_effects.emerald_twirl": "Emerald Twirl",
   "cosmetic.particle_effects.enchanted": "Enchanted",
+  "cosmetic.particle_effects.etherial_light": "Etherial Light",
   "cosmetic.particle_effects.flame_fairy": "Flame Fairy",
   "cosmetic.particle_effects.flame_of_magic": "Flame of Magic",
   "cosmetic.particle_effects.flame_of_the_demons": "Flame of the Demons",
   "cosmetic.particle_effects.flame_rings": "Flame Rings",
   "cosmetic.particle_effects.frost_lord": "Frost Lord",
+  "cosmetic.particle_effects.holy_light": "Holy Light",
   "cosmetic.particle_effects.in_love": "In Love",
   "cosmetic.particle_effects.jack_o_lantern": "Jack-o'-Lantern",
   "cosmetic.particle_effects.legendary_aura": "Legendary Aura",
   "cosmetic.particle_effects.music": "Music",
+  "cosmetic.particle_effects.mysterious_orb": "Mysterious Orb",
   "cosmetic.particle_effects.party_time": "Party Time",
   "cosmetic.particle_effects.protective_shield": "Protective Shield",
   "cosmetic.particle_effects.rain_cloud": "Rain Cloud",
   "cosmetic.particle_effects.rainbow_wings": "Rainbow Wings",
   "cosmetic.particle_effects.santa": "Santa",
+  "cosmetic.particle_effects.serene_fairy": "Serene Fairy",
   "cosmetic.particle_effects.shadow_walk": "Shadow Walk",
   "cosmetic.particle_effects.skull": "Skull",
   "cosmetic.particle_effects.snow_cloud": "Snow Cloud",
   "cosmetic.particle_effects.snowflake": "Snowflake",
+  "cosmetic.particle_effects.soulful_fairy": "Soulful Fairy",
   "cosmetic.particle_effects.star": "Star",
   "cosmetic.particle_effects.tornado": "Tornado",
   "cosmetic.particle_effects.umbrella": "Umbrella",
@@ -2876,6 +2881,11 @@
     "<gray>chosen one! Wisdom radiates from</gray>",
     "<gray>your aura.</gray>"
   ],
+  "menu.particle_effects.etherial_light.name": "<name>",
+  "menu.particle_effects.etherial_light.desc": [
+    "<gray>A crackling etherial light follows</gray>",
+    "<gray>you around constantly!</gray>"
+  ],
   "menu.particle_effects.flame_fairy.name": "<name>",
   "menu.particle_effects.flame_fairy.desc": [
     "<gray>A loyal fire spirit follows</gray>",
@@ -2902,6 +2912,11 @@
     "<gray>Ice crystals swirl around</gray>",
     "<gray>you constantly!</gray>"
   ],
+  "menu.particle_effects.holy_light.name": "<name>",
+  "menu.particle_effects.holy_light.desc": [
+    "<gray>A radiant holy light follows</gray>",
+    "<gray>you around constantly!</gray>"
+  ],
   "menu.particle_effects.in_love.name": "<name>",
   "menu.particle_effects.in_love.desc": [
     "<gray>Floating hearts surround you</gray>",
@@ -2921,6 +2936,11 @@
     "<gray>Musical notes float gracefully</gray>",
     "<gray>above you, creating a symphony</gray>",
     "<gray>of visual melody!</gray>"
+  ],
+  "menu.particle_effects.mysterious_orb.name": "<name>",
+  "menu.particle_effects.mysterious_orb.desc": [
+    "<gray>A mysterious sculk orb follows</gray>",
+    "<gray>you around constantly!</gray>"
   ],
   "menu.particle_effects.party_time.name": "<name>",
   "menu.particle_effects.party_time.desc": [
@@ -2949,6 +2969,11 @@
     "<gray>Bring Santa along as he follows</gray>",
     "<gray>closely behind!</gray>"
   ],
+  "menu.particle_effects.serene_fairy.name": "<name>",
+  "menu.particle_effects.serene_fairy.desc": [
+    "<gray>A serene copper flame follows</gray>",
+    "<gray>you around constantly!</gray>"
+  ],
   "menu.particle_effects.shadow_walk.name": "<name>",
   "menu.particle_effects.shadow_walk.desc": [
     "<gray>Leave mysterious dark shadows</gray>",
@@ -2969,6 +2994,11 @@
   "menu.particle_effects.snowflake.desc": [
     "<gray>A snowflake drift below</gray>",
     "<gray>you gracefully!</gray>"
+  ],
+  "menu.particle_effects.soulful_fairy.name": "<name>",
+  "menu.particle_effects.soulful_fairy.desc": [
+    "<gray>A loyal soul-fire spirit follows</gray>",
+    "<gray>you around constantly!</gray>"
   ],
   "menu.particle_effects.star.name": "<name>",
   "menu.particle_effects.star.desc": [

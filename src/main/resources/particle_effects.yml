@@ -225,6 +225,19 @@ cosmetics:
       - rare
       - legendary
 
+  etherial_light:
+    enabled: true
+    rarity: "legendary"
+    purchasable:
+      enabled: true
+      cost: 50000
+    item: "minecraft:lightning_rod"
+    count: 1
+    treasure_chests:
+      - common
+      - rare
+      - legendary
+
   flame_fairy:
     enabled: true
     rarity: "legendary"
@@ -290,6 +303,19 @@ cosmetics:
       - rare
       - legendary
 
+  holy_light:
+    enabled: true
+    rarity: "legendary"
+    purchasable:
+      enabled: true
+      cost: 50000
+    item: "minecraft:end_rod"
+    count: 1
+    treasure_chests:
+      - common
+      - rare
+      - legendary
+
   in_love:
     enabled: true
     rarity: "rare"
@@ -336,6 +362,19 @@ cosmetics:
       enabled: true
       cost: 10000
     item: "minecraft:note_block"
+    count: 1
+    treasure_chests:
+      - common
+      - rare
+      - legendary
+
+  mysterious_orb:
+    enabled: true
+    rarity: "legendary"
+    purchasable:
+      enabled: true
+      cost: 50000
+    item: "minecraft:echo_shard"
     count: 1
     treasure_chests:
       - common
@@ -407,6 +446,19 @@ cosmetics:
       - rare
       - legendary
 
+  serene_fairy:
+    enabled: true
+    rarity: "legendary"
+    purchasable:
+      enabled: true
+      cost: 50000
+    item: "minecraft:copper_ingot"
+    count: 1
+    treasure_chests:
+      - common
+      - rare
+      - legendary
+
   shadow_walk:
     enabled: true
     rarity: "uncommon"
@@ -453,6 +505,19 @@ cosmetics:
       enabled: true
       cost: 50000
     item: "minecraft:wind_charge"
+    count: 1
+    treasure_chests:
+      - common
+      - rare
+      - legendary
+
+  soulful_fairy:
+    enabled: true
+    rarity: "legendary"
+    purchasable:
+      enabled: true
+      cost: 50000
+    item: "minecraft:soul_lantern"
     count: 1
     treasure_chests:
       - common

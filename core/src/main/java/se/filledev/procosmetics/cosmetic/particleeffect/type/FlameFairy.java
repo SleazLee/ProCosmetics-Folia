@@ -29,6 +29,7 @@ import se.filledev.procosmetics.util.MathUtil;
 
 public class FlameFairy implements ParticleEffectBehavior {
 
+    private final Particle particle;
     private final Vector velocity = new Vector();
     private final Vector tempVector = new Vector();
     private final Location currentLocation = new Location(null, 0.0d, 0.0d, 0.0d);
@@ -50,6 +51,14 @@ public class FlameFairy implements ParticleEffectBehavior {
     private static final double IDLE_CHECK_DIST_SQ = 16.0d;
     private static final double IDLE_CANCEL_DIST_SQ = 25.0d;
     private static final double SLOW_DOWN_DIST_SQ = 2.25d;
+
+    public FlameFairy() {
+        this(Particle.FLAME);
+    }
+
+    protected FlameFairy(Particle particle) {
+        this.particle = particle;
+    }
 
     @Override
     public void onEquip(CosmeticContext<ParticleEffectType> context) {
@@ -142,17 +151,11 @@ public class FlameFairy implements ParticleEffectBehavior {
         // Apply velocity to position
         currentLocation.add(velocity.getX(), velocity.getY(), velocity.getZ());
 
-        world.spawnParticle(Particle.FLAME,
+        world.spawnParticle(particle,
                 currentLocation.getX(),
                 currentLocation.getY(),
                 currentLocation.getZ(),
                 1, 0.02d, 0.02d, 0.02d, 0.0d);
-
-//        world.spawnParticle(Particle.LAVA,
-//                currentLocation.getX(),
-//                currentLocation.getY(),
-//                currentLocation.getZ(),
-//                1, 0.0d, 0.0d, 0.0d, 0.0d);
     }
 
     private void updateGoalLocation(CosmeticContext<ParticleEffectType> context) {
