@@ -54,9 +54,9 @@ The API and versioned NMS modules follow upstream's current server version. Shar
 - `api/build.gradle.kts`: `org.spigotmc:spigot-api:26.2-R0.1-SNAPSHOT`
 - `core/build.gradle.kts`: `org.spigotmc:spigot:26.2-R0.1-SNAPSHOT`, excluding its transitive `spigot-api`
 - `core/build.gradle.kts`: `io.papermc.paper:paper-api:${rootProject.extra["corePaperApiVersion"]}`
-- `paper/build.gradle.kts`: `paperweight.paperDevBundle(rootProject.extra["paperApiVersion"])`
+- `paper/build.gradle.kts`: `paperweight.paperDevBundle(rootProject.extra["paperApiVersion"])`, currently pinned to `26.3.build.222-stable`
 
-The `v26_1` and `v26_2` NMS modules compile against their matching full Spigot/CraftBukkit artifacts.
+The `v26_1`, `v26_2` and `v26_3` NMS modules compile against their matching full Spigot/CraftBukkit artifacts.
 
 Keep `corePaperApiVersion` on 26.1.x while that server generation is supported. Update `paperApiVersion` for the current Paper adapter independently.
 
@@ -96,10 +96,11 @@ The versioned NMS modules use CraftBukkit classes that are **not** available in 
    ```bash
    java -jar BuildTools.jar --rev 26.1.2
    java -jar BuildTools.jar --rev 26.2
+   java -jar BuildTools.jar --rev 26.3
    ```
 3. Re-run the build:
    ```bash
-   ./gradlew :v26_1:compileJava :v26_2:compileJava
+   ./gradlew :v26_1:compileJava :v26_2:compileJava :v26_3:compileJava build
    ```
 
 BuildTools installs the NMS/CraftBukkit artifacts into `~/.m2/repository/org/spigotmc/`, which Gradle resolves when compiling the NMS subprojects.
@@ -113,6 +114,8 @@ Keep the Paper pathfinder implementation in `NMSEntityImpl` for real pet and mou
 - Stop both Paper and NMS navigation before removal or teleport.
 - Use `teleportAsync` for long-distance Folia recovery.
 - Implement `stopNavigation()` and safe goal-selector clearing in every versioned NMS module.
+
+When upstream adds a new NMS module, port the fork's `stopNavigation()` override and call it from `removePathfinder()`. These are required by the shared pet/mount following implementation; importing upstream's adapter unchanged leaves out this cleanup.
 
 ## References
 

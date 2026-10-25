@@ -6,12 +6,13 @@ repositories {
     maven("https://ci.ender.zone/plugin/repository/everything/")
     maven("https://repo.rosewooddev.io/repository/public/")
     maven("https://maven.enginehub.org/repo/") // WorldGuard
+    maven("https://jitpack.io") // SuperVanish
 }
 
 dependencies {
     // Server APIs
     // Keep shared core bytecode on the 26.1.x / Adventure 4 ABI. The dedicated
-    // paper module compiles against 26.2 below, and Adventure 5 retains bridges
+    // paper module compiles against 26.3, and Adventure 5 retains bridges
     // for the older descriptors used here.
     compileOnly("io.papermc.paper:paper-api:${rootProject.extra["corePaperApiVersion"]}")
     compileOnly("org.spigotmc:spigot:26.2-R0.1-SNAPSHOT") {
@@ -30,7 +31,7 @@ dependencies {
         exclude(group = "org.jetbrains.annotations")
     }
     // NoteBlockAPI (disabled for Folia compatibility)
-    // implementation("com.github.FilleDev:NoteBlockAPI:1c5500b038")
+    // implementation("com.github.FilleDev:NoteBlockAPI:1.7.0")
     implementation("org.mongodb:mongodb-driver-sync:5.8.0")
     implementation("com.zaxxer:HikariCP:7.1.0")
     implementation("redis.clients:jedis:7.5.2")

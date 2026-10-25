@@ -181,12 +181,12 @@ public abstract class TreasureChestAnimationImpl implements TreasureChestAnimati
     }
 
     private void giveRandomLoot(LootTable lootTable, Location location) {
-        LootEntry lootEntry = lootTable.rollLoot();
+        LootEntry lootEntry = lootTable.rollLoot(player);
 
         if (lootEntry == null) {
             return;
         }
-        GeneratedLoot generatedLoot = lootEntry.generate();
+        GeneratedLoot generatedLoot = lootEntry.generate(player);
 
         if (generatedLoot == null) {
             plugin.getJavaPlugin().getLogger().warning("Failed to generate loot for entry " + lootEntry.getKey() + ".");
@@ -208,10 +208,11 @@ public abstract class TreasureChestAnimationImpl implements TreasureChestAnimati
 
         if (text.getBukkitEntity() instanceof TextDisplay textDisplay) {
             plugin.getPlatformAdapter().setText(textDisplay, user.translate(
-                    "treasure_chest.open.hologram",
+                    generatedLoot.getHologramTranslationKey(),
                     Placeholder.unparsed("category", generatedLoot.getCategory().getName(user)),
                     Placeholder.component("loot", generatedLoot.getResolvedName(user)),
-                    rarity.getResolvers(user)
+                    rarity.getResolvers(user),
+                    generatedLoot.getHologramResolvers(user)
             ));
             textDisplay.setBillboard(TextDisplay.Billboard.CENTER);
             textDisplay.setTeleportDuration(2);

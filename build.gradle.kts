@@ -4,15 +4,15 @@ import java.net.URI
 
 plugins {
     java
-    id("com.gradleup.shadow") version "9.4.2"
-    id("com.diffplug.spotless") version "8.7.0"
+    id("com.gradleup.shadow") version "9.4.3"
+    id("com.diffplug.spotless") version "8.9.0"
 }
 
 group = "se.filledev"
-version = "2.0.6"
+version = "2.0.9"
 
 extra["corePaperApiVersion"] = "26.1.2.build.69-stable"
-extra["paperApiVersion"] = "26.2.build.+"
+extra["paperApiVersion"] = "26.3.build.222-stable"
 
 java {
     toolchain {
@@ -62,7 +62,7 @@ tasks.named<Jar>("jar") {
 repositories {
     mavenLocal()
     mavenCentral()
-    maven("https://jitpack.io")
+    maven("https://repo.filledev.se/releases")
 }
 
 dependencies {
@@ -78,7 +78,7 @@ subprojects {
     repositories {
         mavenLocal()
         mavenCentral()
-        maven("https://jitpack.io")
+        maven("https://repo.filledev.se/releases")
 
         // Spigot
         maven("https://oss.sonatype.org/content/repositories/snapshots")
